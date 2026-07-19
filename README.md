@@ -104,7 +104,7 @@ reconai/
 - If Gmail has no invoice/receipt-looking emails, Discovery will legitimately report 0 found — that's correct behavior, not a bug. Send yourself a test email with a subject like "Invoice from Test Vendor" to get a real end-to-end run.
 - **Password-protected PDF attachments**: if an invoice email has a locked PDF attached, Discovery reports everything else as normal and then asks you, in the chat reply, for that specific file's password (naming the file and which email it came from). If the email itself already states the password format — common with bank e-statements ("password is the first 4 letters of your name + your DOB in DDMM," "password is your PAN in uppercase") — Discovery reads that and quotes the hint back to you instead of making you dig it up yourself. Just reply with the password in your next message — no special format required, Discovery will match it to the file it just asked about and unlock it via `unlock_pdf_attachment`. The password itself is never written anywhere or repeated back in any reply.
 
-## Switching to a different Google account (e.g. a judge's own inbox)
+## Switching to a different Google account
 
 1. Add the other account's email as a **Test user** in Google Cloud Console → APIs & Services → OAuth consent screen, *before* the demo — unverified apps block sign-in for anyone not on that list.
 2. Back up and clear the current token: `mv token.json token_backup.json`, then restart the app. The next Gmail call re-triggers the OAuth consent flow for a new account.
