@@ -166,7 +166,7 @@ by a re-login prompt.
 
 ## C. Updated action items (supersedes items 6–11 of the prior summary)
 
-1. ~~Fix model string (`gemini-3.5-flash` -> `gemini-2.5-flash`) in all files.~~
+1. Fix model string (`gemini-3.5-flash` -> `gemini-2.5-flash`) in all files.
    **Superseded**: `gemini-2.5-flash` returns `404 NOT_FOUND` ("no longer
    available to new users") as of this build. All files now default to
    `gemini-3.5-flash` (`agents.py`, `tools/discovery_tools.py`,
