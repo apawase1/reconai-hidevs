@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReconAI — Live Demo (Mock Data)</title>
+<link rel="icon" href="data:,">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap');
+
+  :root[data-theme="dark"] {
+    --bg: #040A14;
+    --surface: #081726;
+    --surface-alt: #0C1F33;
+    --border: rgba(34, 211, 238, 0.22);
+    --border-glow: rgba(34, 211, 238, 0.55);
+    --text-primary: #E8FBFF;
+    --text-muted: #5E86A0;
+    --teal: #22D3EE;
+    --purple: #3B82F6;
+    --coral: #FF3B5C;
+    --amber: #38BDF8;
+    --glow-cyan: 0 0 12px rgba(34, 211, 238, 0.55);
+    --glow-cyan-soft: 0 0 18px rgba(34, 211, 238, 0.18);
+    --accent-rgb: 34, 211, 238;
+    --accent2-rgb: 59, 130, 246;
+    --grid-opacity: 0.025;
+  }
+  :root[data-theme="light"] {
+    --bg: #F3F6FB;
+    --surface: #FFFFFF;
+    --surface-alt: #EEF2F8;
+    --border: rgba(15, 23, 42, 0.10);
+    --border-glow: rgba(37, 99, 235, 0.45);
+    --text-primary: #0F1B2D;
+    --text-muted: #64748B;
+    --teal: #0891B2;
+    --purple: #4F46E5;
+    --coral: #DC2626;
+    --amber: #0284C7;
+    --glow-cyan: 0 2px 10px rgba(37, 99, 235, 0.16);
+    --glow-cyan-soft: 0 1px 8px rgba(15, 23, 42, 0.07);
+    --accent-rgb: 37, 99, 235;
+    --accent2-rgb: 37, 99, 235;
+    --grid-opacity: 0;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Share Tech Mono', monospace, sans-serif;
+    color: var(--text-primary);
+    background:
+      radial-gradient(circle at 15% 0%, rgba(var(--accent-rgb),0.06), transparent 40%),
+      radial-gradient(circle at 85% 100%, rgba(var(--accent2-rgb),0.05), transparent 45%),
+      repeating-linear-gradient(0deg, rgba(var(--accent-rgb),var(--grid-opacity)) 0px, rgba(var(--accent-rgb),var(--grid-opacity)) 1px, transparent 1px, transparent 42px),
+      repeating-linear-gradient(90deg, rgba(var(--accent-rgb),var(--grid-opacity)) 0px, rgba(var(--accent-rgb),var(--grid-opacity)) 1px, transparent 1px, transparent 42px),
+      var(--bg);
+    min-height: 100vh;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 20px 60px; }
+
+  .demo-banner {
+    background: var(--surface-alt);
+    border: 1px solid var(--border-glow);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 18px;
+    text-align: center;
+  }
+  .demo-banner b { color: var(--amber); }
+
+  .recon-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 20px 0; }
+  .recon-brand { display: flex; align-items: center; gap: 12px; }
+  .recon-logo {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--surface-alt); border: 1px solid var(--border-glow); box-shadow: var(--glow-cyan);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 18px; color: var(--teal);
+  }
+  .recon-title { font-family: 'Orbitron', sans-serif; font-size: 21px; font-weight: 700; letter-spacing: 0.04em; margin: 0; }
+  .recon-subtitle { font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0; display: flex; align-items: center; gap: 6px; }
+  .recon-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
+  .theme-btn {
+    background: var(--surface-alt); color: var(--teal); border: 1px solid var(--border-glow);
+    border-radius: 8px; padding: 8px 14px; font-family: 'Share Tech Mono', monospace;
+    font-size: 13px; cursor: pointer; letter-spacing: 0.04em;
+  }
+  .theme-btn:hover { box-shadow: var(--glow-cyan); }
+
+  .chat-bubble {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    box-shadow: var(--glow-cyan-soft); padding: 14px 18px; margin-bottom: 14px; font-size: 14px;
+  }
+  .chat-bubble.user { background: var(--surface-alt); }
+  .chat-bubble h2 { font-size: 16px; margin: 10px 0 6px; }
+  .chat-bubble h3 { font-size: 14px; color: var(--teal); text-transform: uppercase; letter-spacing: 0.06em; margin: 14px 0 6px; }
+  .chat-bubble ul { margin: 4px 0; padding-left: 20px; }
+  .chat-bubble li { margin: 3px 0; }
+
+  .chat-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--glow-cyan-soft); padding: 16px 18px 14px; margin-bottom: 18px; }
+  #chatLog { max-height: 640px; overflow-y: auto; }
+  #chatLog .chat-bubble:last-child { margin-bottom: 0; }
+
+  .trace-box { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; }
+  .trace-step { margin-bottom: 10px; }
+  .trace-step:last-child { margin-bottom: 0; }
+  .trace-agent { display: flex; align-items: center; gap: 8px; font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--teal); margin-bottom: 6px; }
+  .trace-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: trace-pulse 1s infinite; flex-shrink: 0; }
+  .trace-dot.done { background: var(--teal); box-shadow: 0 0 8px var(--teal); animation: none; }
+  @keyframes trace-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+  .trace-status-text { color: var(--text-muted); font-size: 12.5px; }
+  .trace-json { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; max-height: 210px; overflow-y: auto; font-family: 'Share Tech Mono', monospace; font-size: 11px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; color: var(--text-muted); }
+
+  .chat-input-row { display: flex; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .chat-input-field { flex: 1; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text-primary); font-family: 'Share Tech Mono', monospace; font-size: 13px; }
+  .chat-input-field:focus { outline: none; border-color: var(--border-glow); box-shadow: var(--glow-cyan); }
+  .chat-send-btn { background: var(--teal); color: var(--bg); border: none; border-radius: 10px; padding: 0 20px; font-family: 'Share Tech Mono', monospace; font-weight: 700; cursor: pointer; letter-spacing: 0.03em; }
+  .chat-send-btn:hover { box-shadow: var(--glow-cyan); }
+  .chat-send-btn:disabled, .chat-input-field:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .metric-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+  .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; box-shadow: var(--glow-cyan-soft); }
+  .metric-label { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .metric-value { font-family: 'Share Tech Mono', monospace; font-size: 26px; font-weight: 700; }
+  .metric-badge { display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; box-shadow: var(--glow-cyan-soft); margin-bottom: 14px; overflow: hidden; }
+  .panel-title { font-size: 13px; font-weight: 700; margin-bottom: 14px; display: flex; justify-content: space-between; text-transform: uppercase; letter-spacing: 0.08em; color: var(--teal); }
+
+  .row2 { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; align-items: start; margin-bottom: 14px; }
+  .row2b { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; margin-bottom: 14px; }
+  @media (max-width: 800px) { .row2, .row2b, .metric-row { grid-template-columns: 1fr; } }
+
+  .ledger-balance-card { background: linear-gradient(135deg, var(--surface-alt), var(--surface)); border: 1px solid var(--border-glow); border-radius: 14px; padding: 22px; margin-bottom: 14px; box-shadow: var(--glow-cyan); }
+  .ledger-balance-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .ledger-balance-value { font-size: 30px; font-weight: 700; margin: 6px 0 14px 0; color: var(--teal); }
+  .ledger-stat-row { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); padding: 6px 0; border-top: 1px solid var(--border); }
+  .ledger-stat-row span:last-child { color: var(--text-primary); font-weight: 600; }
+
+  .budget-row { margin-bottom: 12px; }
+  .budget-row-top { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+  .budget-track { width: 100%; height: 6px; border-radius: 999px; background: var(--surface-alt); overflow: hidden; }
+  .budget-fill { height: 100%; border-radius: 999px; }
+
+  .txn-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--border); }
+  .txn-left { display: flex; align-items: center; gap: 12px; }
+  .txn-avatar { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: var(--bg); flex-shrink: 0; }
+  .txn-vendor { font-size: 14px; font-weight: 600; margin: 0; }
+  .txn-meta { font-size: 12px; color: var(--text-muted); margin: 0; }
+  .txn-amount { font-size: 15px; font-weight: 700; }
+  .tag { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; margin-left: 6px; text-transform: uppercase; }
+
+  .missing-row { display: flex; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--border); font-size: 13px; }
+  .empty-hint { color: var(--text-muted); font-size: 13px; padding: 8px 0; }
+  .footer-note { text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 24px; }
+  a { color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="demo-banner">🔒 <b>Demo mode</b> — every figure on this page is mock data generated for demo purposes. No real Gmail, financial, or personal data is shown or was ever fetched to build this page.</div>
+
+  <div class="recon-header">
+    <div class="recon-brand">
+      <div class="recon-logo">R</div>
+      <div>
+        <p class="recon-title">RECONAI</p>
+        <p class="recon-subtitle"><span class="recon-live-dot"></span>Discovery &rarr; Reconciliation &rarr; Reporting &middot; Google ADK</p>
+      </div>
+    </div>
+    <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">☀️ Light</button>
+  </div>
+
+  <div class="chat-panel">
+    <div id="chatLog"></div>
+    <div class="chat-input-row">
+      <input type="text" id="chatInput" class="chat-input-field" placeholder='e.g. "Prepare July reconciliation" or ask a question about your ledger' autocomplete="off">
+      <button id="sendBtn" class="chat-send-btn">Send</button>
+    </div>
+  </div>
+
+  <template id="reportTemplate">
+    <h2>July 2026 Reconciliation Report</h2>
+    <p><b>Total spent:</b> 82,002.00 &middot; <b>Transactions processed:</b> 20 &middot; <b>Duplicates flagged (excluded):</b> 1 &middot; <b>Missing invoices:</b> 1 &middot; <b>Recurring charges:</b> 10 &middot; <b>GST-eligible total:</b> 2,999.00</p>
+
+    <h3>Where it went (by category)</h3>
+    <ul>
+      <li><b>Investment:</b> 47,500.00 (58%) — SIP Investment, NACH Mutual Fund SIP</li>
+      <li><b>Rent:</b> 20,000.00 (24%) — Landlord - Dom's Residence</li>
+      <li><b>Groceries:</b> 3,200.00 (4%) — BigBasket</li>
+      <li><b>SaaS:</b> 2,999.00 (4%) — Anthropic PBC, Google Cloud Platform</li>
+      <li><b>Shopping:</b> 2,949.00 (4%) — Amazon, Frame Kro</li>
+      <li><b>Interest Income:</b> 2,124.00 (3%) — HDFC Bank</li>
+      <li><b>Subscriptions:</b> 1,366.00 (2%) — Netflix, Disney+ Hotstar, Amazon Prime, Spotify</li>
+      <li><b>Food:</b> 999.00 (1%) — Sri Krishna Sagar, Indira Priyadarshini</li>
+      <li><b>Income (Dividends):</b> 705.00 (1%) — Tata Power Company Ltd</li>
+      <li><b>Transfer:</b> 160.00 (0%) — q635075112@ybl, q958687424@ybl</li>
+    </ul>
+
+    <h3>Subscriptions you have</h3>
+    <ul>
+      <li><b>Anthropic PBC:</b> 1,899.00 (SaaS)</li>
+      <li><b>Google Cloud Platform:</b> 1,100.00 (SaaS)</li>
+      <li><b>Netflix:</b> 649.00 (Subscriptions)</li>
+      <li><b>Disney+ Hotstar:</b> 299.00 (Subscriptions)</li>
+      <li><b>Amazon Prime:</b> 299.00 (Subscriptions)</li>
+      <li><b>Spotify:</b> 119.00 (Subscriptions)</li>
+    </ul>
+
+    <h3>Recurring investments</h3>
+    <ul><li><b>SIP Investment:</b> 39,000.00 (Investment)</li><li><b>NACH Mutual Fund SIP:</b> 8,500.00 (Investment)</li></ul>
+
+    <h3>Payments pending (not yet paid, not included in total spent)</h3>
+    <ul><li><b>BESCOM:</b> 1,240.00 due — Utilities (2026-07-16)</li></ul>
+
+    <h3>Recommendations</h3>
+    <ul>
+      <li>Review the flagged Frame Kro duplicate — two emails matched the same ₹499 order.</li>
+      <li>Pay the pending BESCOM electricity bill (₹1,240) before its due date — not yet reflected as paid.</li>
+      <li>Claim the 18% GST input credit on your ₹2,999 SaaS spend (Anthropic + Google Cloud).</li>
+      <li>You're over budget on Groceries, Shopping, and SaaS this month — worth a look.</li>
+      <li>Follow up on the ₹850 PVR Cinemas debit with no matching invoice email.</li>
+    </ul>
+  </template>
+
+  <div class="metric-row">
+    <div class="metric-card"><div class="metric-label">Total spent</div><div class="metric-value">82,002</div></div>
+    <div class="metric-card"><div class="metric-label">Transactions</div><div class="metric-value">20</div></div>
+    <div class="metric-card">
+      <div class="metric-label">Duplicates flagged</div><div class="metric-value">1</div>
+      <span class="metric-badge" style="background:color-mix(in srgb, var(--coral) 13%, transparent); color:var(--coral);">Review these</span>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Missing invoices</div><div class="metric-value">1</div>
+      <span class="metric-badge" style="background:color-mix(in srgb, var(--coral) 13%, transparent); color:var(--coral);">Needs follow-up</span>
+    </div>
+  </div>
+
+  <div class="row2">
+    <div class="panel">
+      <div class="panel-title">Category breakdown</div>
+      <div id="donut" style="height:260px;"></div>
+    </div>
+    <div>
+      <div class="ledger-balance-card">
+        <div class="ledger-balance-label">Ledger summary</div>
+        <div class="ledger-balance-value">82,002.00</div>
+        <div class="ledger-stat-row"><span>Recurring charges</span><span>10</span></div>
+        <div class="ledger-stat-row"><span>GST-eligible total</span><span>2,999.00</span></div>
+        <div class="ledger-stat-row"><span>Ledger sync</span><span>coming soon</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Budget status</div>
+        <div class="budget-row"><div class="budget-row-top"><span>Groceries</span><span style="color:var(--coral);">3,200 / 3,000</span></div><div class="budget-track"><div class="budget-fill" style="width:100%; background:var(--coral);"></div></div></div>
+        <div class="budget-row"><div class="budget-row-top"><span>Subscriptions</span><span style="color:var(--text-muted);">1,366 / 2,000</span></div><div class="budget-track"><div class="budget-fill" style="width:68%; background:var(--teal);"></div></div></div>
+        <div class="budget-row"><div class="budget-row-top"><span>Shopping</span><span style="color:var(--coral);">3,448 / 2,000</span></div><div class="budget-track"><div class="budget-fill" style="width:100%; background:var(--coral);"></div></div></div>
+        <div class="budget-row"><div class="budget-row-top"><span>SaaS</span><span style="color:var(--coral);">2,999 / 2,500</span></div><div class="budget-track"><div class="budget-fill" style="width:100%; background:var(--coral);"></div></div></div>
+        <div class="budget-row"><div class="budget-row-top"><span>Rent</span><span style="color:var(--text-muted);">20,000 / 20,000</span></div><div class="budget-track"><div class="budget-fill" style="width:100%; background:var(--teal);"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Recent transactions</div>
+    <div id="txnList"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Missing invoices <span class="tag" style="background:color-mix(in srgb, var(--coral) 13%, transparent); color:var(--coral);">1</span></div>
+    <div class="missing-row"><span>PVR CINEMAS - MOVIE TICKETS</span><span style="color:var(--coral);">850.00</span></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Payments pending <span class="tag" style="background:color-mix(in srgb, var(--amber) 13%, transparent); color:var(--amber);">1</span></div>
+    <p style="font-size:12px; color:var(--text-muted); margin:-8px 0 10px 0;">Bill generated/issued but not confirmed paid — not counted in total spent above.</p>
+    <div class="missing-row"><span>BESCOM &middot; Utilities</span><span style="color:var(--amber);">1,240.00</span></div>
+  </div>
+
+  <div class="row2b">
+    <div class="panel">
+      <div class="panel-title">Subscriptions you have</div>
+      <div id="subList"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">Recurring investments</div>
+      <div id="invList"></div>
+    </div>
+  </div>
+
+  <p class="footer-note">Built for the AI Agent Builder Series 2026 hackathon. This page is a static, offline snapshot — the real app runs a live 3-agent Google ADK pipeline over Gmail via Streamlit.</p>
+  <p class="footer-note">This build is scoped to Gmail-in, report-out to keep API/compute usage inside a hackathon budget. <b style="color:var(--teal);">Future scope:</b> Google Drive discovery (receipts saved outside Gmail) and Google Sheets sync (a persistent ledger for cross-run memory and multi-month Q&amp;A) are both already built into the tool layer and are the natural next step with more budget headroom.</p>
+</div>
+
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script>
+  // ---- Pipeline trace data (mirrors mock_data/discovery_output_sample.json and
+  // the real check_duplicates_and_budget output shape) ----
+  var discoveryOutput = {
+    "status": "ok",
+    "count": 20,
+    "transactions": [
+      {"source_id": "19f2208354f379c9:hdfc_interest_jul01", "vendor": "HDFC Bank", "amount": 2124.0, "date": "2026-07-01", "category": "Interest Income", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "18d9a41c220b5f3a:groceries_jul", "vendor": "BigBasket", "amount": 3200.0, "date": "2026-07-08", "category": "Groceries", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "18d9a41c220b5f3b:amazon_jul", "vendor": "Amazon", "amount": 2450.0, "date": "2026-07-12", "category": "Shopping", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "1a2b3c4d5e6f7001:anthropic_jul", "vendor": "Anthropic PBC", "amount": 1899.0, "date": "2026-07-05", "category": "SaaS", "is_recurring_guess": true, "gst_eligible_guess": true, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "1a2b3c4d5e6f7002:gcp_jul", "vendor": "Google Cloud Platform", "amount": 1100.0, "date": "2026-07-18", "category": "SaaS", "is_recurring_guess": true, "gst_eligible_guess": true, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "1b3c5d7e9f102030:sip_jul", "vendor": "SIP Investment", "amount": 39000.0, "date": "2026-07-16", "category": "Investment", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "1b3c5d7e9f102031:nach_sip_jul", "vendor": "NACH Mutual Fund SIP", "amount": 8500.0, "date": "2026-07-05", "category": "Investment", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "1c4d5e6f70819202:framekro_confirm", "vendor": "Frame Kro", "amount": 499.0, "date": "2026-07-16", "category": "Shopping", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "1c4d5e6f70819203:framekro_receipt", "vendor": "Frame Kro", "amount": 499.0, "date": "2026-07-17", "category": "Shopping", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "1d5e6f7081920a1b:bescom_bill_jul", "vendor": "BESCOM", "amount": 1240.0, "date": "2026-07-16", "category": "Utilities", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "pending", "status": "ok"},
+      {"source_id": "1e6f708192a3b4c5:zomato_jul18", "vendor": "Sri Krishna Sagar", "amount": 239.0, "date": "2026-07-19", "category": "Food", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "1e6f708192a3b4c6:swiggy_jul18", "vendor": "Indira Priyadarshini", "amount": 760.0, "date": "2026-07-18", "category": "Food", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "1f708192a3b4c5d6:upi_1", "vendor": "q635075112@ybl", "amount": 80.0, "date": "2026-07-18", "category": "Transfer", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "1f708192a3b4c5d7:upi_2", "vendor": "q958687424@ybl", "amount": 80.0, "date": "2026-07-16", "category": "Transfer", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "208192a3b4c5d6e7:tata_dividend", "vendor": "Tata Power Company Ltd", "amount": 705.0, "date": "2026-07-14", "category": "Income (Dividends)", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "21a2b3c4d5e6f701:netflix_jul", "vendor": "Netflix", "amount": 649.0, "date": "2026-07-03", "category": "Subscriptions", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "21a2b3c4d5e6f702:hotstar_jul", "vendor": "Disney+ Hotstar", "amount": 299.0, "date": "2026-07-04", "category": "Subscriptions", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "21a2b3c4d5e6f703:prime_jul", "vendor": "Amazon Prime", "amount": 299.0, "date": "2026-07-06", "category": "Subscriptions", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "21a2b3c4d5e6f704:spotify_jul", "vendor": "Spotify", "amount": 119.0, "date": "2026-07-07", "category": "Subscriptions", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "22a2b3c4d5e6f701:rent_jul", "vendor": "Landlord - Dom's Residence", "amount": 20000.0, "date": "2026-07-02", "category": "Rent", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"}
+    ]
+  };
+
+  var reconOutput = {
+    "status": "ok",
+    "duplicate_count": 1,
+    "duplicates": [
+      {"vendor": "Frame Kro", "amount": 499.0, "dates": ["2026-07-16", "2026-07-17"], "note": "same vendor + amount within a 3-day window -> flagged, excluded from totals"}
+    ],
+    "missing_invoices": [
+      {"description": "PVR CINEMAS - MOVIE TICKETS", "amount": 850.0, "date": "2026-07-20", "note": "bank debit with no matching invoice email"}
+    ],
+    "recurring_count": 10,
+    "payments_pending": [
+      {"vendor": "BESCOM", "amount": 1240.0, "category": "Utilities", "due_date": "2026-07-16", "note": "bill generated, not yet confirmed paid"}
+    ],
+    "budget_summary": {
+      "Groceries": {"spent": 3200, "budget": 3000, "over_budget": true},
+      "Shopping": {"spent": 3448, "budget": 2000, "over_budget": true},
+      "SaaS": {"spent": 2999, "budget": 2500, "over_budget": true},
+      "Subscriptions": {"spent": 1366, "budget": 2000, "over_budget": false},
+      "Rent": {"spent": 20000, "budget": 20000, "over_budget": false}
+    }
+  };
+
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function traceStepHTML(agentLabel, bodyHTML, id) {
+    return '<div class="trace-step" id="' + id + '">' +
+      '<div class="trace-agent"><span class="trace-dot" id="' + id + '-dot"></span>[' + agentLabel + ']</div>' +
+      '<div id="' + id + '-body">' + bodyHTML + '</div></div>';
+  }
+
+  function scrollChat() {
+    var el = document.getElementById("chatLog");
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function runPipeline(promptText) {
+    var chatLog = document.getElementById("chatLog");
+    var sendBtn = document.getElementById("sendBtn");
+    var chatInput = document.getElementById("chatInput");
+    sendBtn.disabled = true;
+    chatInput.disabled = true;
+
+    var userBubble = document.createElement("div");
+    userBubble.className = "chat-bubble user";
+    userBubble.textContent = promptText;
+    chatLog.appendChild(userBubble);
+
+    var traceBox = document.createElement("div");
+    traceBox.className = "trace-box";
+    var traceId = "trace-" + Date.now();
+    traceBox.id = traceId;
+    chatLog.appendChild(traceBox);
+    scrollChat();
+
+    traceBox.innerHTML = traceStepHTML(
+      "discovery_agent",
+      '<span class="trace-status-text">Scanning Gmail (excluding Sent/Drafts/Chats) for invoices, receipts, bills, and statements…</span>',
+      "step1"
+    );
+    scrollChat();
+
+    setTimeout(function () {
+      document.getElementById("step1-dot").classList.add("done");
+      document.getElementById("step1-body").innerHTML =
+        '<div class="trace-json">' + escapeHtml(JSON.stringify(discoveryOutput, null, 2)) + "</div>";
+      scrollChat();
+
+      traceBox.innerHTML += traceStepHTML(
+        "reconciliation_agent",
+        '<span class="trace-status-text">Checking ' + discoveryOutput.count + ' transactions for duplicates, recurring charges, budget overruns, and unmatched bank debits…</span>',
+        "step2"
+      );
+      scrollChat();
+
+      setTimeout(function () {
+        document.getElementById("step2-dot").classList.add("done");
+        document.getElementById("step2-body").innerHTML =
+          '<div class="trace-json">' + escapeHtml(JSON.stringify(reconOutput, null, 2)) + "</div>";
+        scrollChat();
+
+        traceBox.innerHTML += traceStepHTML(
+          "reporting_agent",
+          '<span class="trace-status-text">Building the monthly reconciliation report and dashboard…</span>',
+          "step3"
+        );
+        scrollChat();
+
+        setTimeout(function () {
+          document.getElementById("step3-dot").classList.add("done");
+          document.getElementById("step3-body").innerHTML = '<span class="trace-status-text">Done — report ready below.</span>';
+
+          var reportTpl = document.getElementById("reportTemplate");
+          var reportBubble = document.createElement("div");
+          reportBubble.className = "chat-bubble";
+          reportBubble.appendChild(reportTpl.content.cloneNode(true));
+          chatLog.appendChild(reportBubble);
+          scrollChat();
+
+          sendBtn.disabled = false;
+          chatInput.disabled = false;
+          chatInput.value = "";
+          chatInput.focus();
+        }, 700);
+      }, 700);
+    }, 700);
+  }
+
+  function handleSend() {
+    var chatInput = document.getElementById("chatInput");
+    var val = chatInput.value.trim();
+    if (!val) val = "Prepare July 2026 reconciliation";
+    runPipeline(val);
+  }
+
+  document.getElementById("sendBtn").addEventListener("click", handleSend);
+  document.getElementById("chatInput").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSend();
+    }
+  });
+
+  var transactions = [
+    {vendor:"HDFC Bank", amount:2124.00, category:"Interest Income", date:"2026-07-01", dup:false, rec:true, pending:false},
+    {vendor:"Landlord - Dom's Residence", amount:20000.00, category:"Rent", date:"2026-07-02", dup:false, rec:true, pending:false},
+    {vendor:"Netflix", amount:649.00, category:"Subscriptions", date:"2026-07-03", dup:false, rec:true, pending:false},
+    {vendor:"Disney+ Hotstar", amount:299.00, category:"Subscriptions", date:"2026-07-04", dup:false, rec:true, pending:false},
+    {vendor:"Anthropic PBC", amount:1899.00, category:"SaaS", date:"2026-07-05", dup:false, rec:true, pending:false},
+    {vendor:"Amazon Prime", amount:299.00, category:"Subscriptions", date:"2026-07-06", dup:false, rec:true, pending:false},
+    {vendor:"Spotify", amount:119.00, category:"Subscriptions", date:"2026-07-07", dup:false, rec:true, pending:false},
+    {vendor:"BigBasket", amount:3200.00, category:"Groceries", date:"2026-07-08", dup:false, rec:false, pending:false},
+    {vendor:"Amazon", amount:2450.00, category:"Shopping", date:"2026-07-12", dup:false, rec:false, pending:false},
+    {vendor:"SIP Investment", amount:39000.00, category:"Investment", date:"2026-07-16", dup:false, rec:true, pending:false},
+    {vendor:"Frame Kro", amount:499.00, category:"Shopping", date:"2026-07-16", dup:false, rec:false, pending:false},
+    {vendor:"Frame Kro", amount:499.00, category:"Shopping", date:"2026-07-17", dup:true, rec:false, pending:false},
+    {vendor:"BESCOM", amount:1240.00, category:"Utilities", date:"2026-07-16", dup:false, rec:true, pending:true},
+    {vendor:"Sri Krishna Sagar", amount:239.00, category:"Food", date:"2026-07-19", dup:false, rec:false, pending:false},
+  ];
+  var subscriptions = [
+    {vendor:"Anthropic PBC", amount:1899.00, category:"SaaS"},
+    {vendor:"Google Cloud Platform", amount:1100.00, category:"SaaS"},
+    {vendor:"Netflix", amount:649.00, category:"Subscriptions"},
+    {vendor:"Disney+ Hotstar", amount:299.00, category:"Subscriptions"},
+    {vendor:"Amazon Prime", amount:299.00, category:"Subscriptions"},
+    {vendor:"Spotify", amount:119.00, category:"Subscriptions"},
+  ];
+  var investments = [{vendor:"SIP Investment", amount:39000.00, category:"Investment"}, {vendor:"NACH Mutual Fund SIP", amount:8500.00, category:"Investment"}];
+  var categoryColorsDark = ["#22D3EE", "#3B82F6", "#38BDF8", "#818CF8", "#2DD4BF", "#93C5FD", "#0EA5E9", "#F472B6"];
+  var categoryColorsLight = ["#0891B2", "#4F46E5", "#2563EB", "#7C3AED", "#0D9488", "#DB2777", "#0284C7", "#EA580C"];
+
+  function avatarColor(vendor) {
+    var colors = document.documentElement.getAttribute("data-theme") === "light" ? categoryColorsLight : categoryColorsDark;
+    var hash = 0;
+    for (var i = 0; i < vendor.length; i++) hash = vendor.charCodeAt(i) + ((hash << 5) - hash);
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+  function renderTxnList() {
+    var el = document.getElementById("txnList");
+    el.innerHTML = transactions.map(function(t) {
+      var color = avatarColor(t.vendor);
+      var tags = "";
+      if (t.dup) tags += '<span class="tag" style="background:color-mix(in srgb, var(--coral) 13%, transparent); color:var(--coral);">Duplicate</span>';
+      if (t.pending) tags += '<span class="tag" style="background:color-mix(in srgb, var(--amber) 13%, transparent); color:var(--amber);">Pending</span>';
+      if (t.rec) tags += '<span class="tag" style="background:color-mix(in srgb, var(--purple) 13%, transparent); color:var(--purple);">Recurring</span>';
+      var amountColor = (t.dup || t.pending) ? "var(--coral)" : "var(--text-primary)";
+      return '<div class="txn-row"><div class="txn-left">' +
+        '<div class="txn-avatar" style="background:' + color + '; box-shadow:0 0 10px ' + color + '99;">' + t.vendor[0].toUpperCase() + '</div>' +
+        '<div><p class="txn-vendor">' + t.vendor + tags + '</p><p class="txn-meta">' + t.category + ' &middot; ' + t.date + '</p></div>' +
+        '</div><div class="txn-amount" style="color:' + amountColor + ';">-' + t.amount.toLocaleString(undefined, {minimumFractionDigits:2}) + '</div></div>';
+    }).join("");
+  }
+
+  function renderRecurringList(id, items) {
+    var el = document.getElementById(id);
+    if (!items.length) { el.innerHTML = '<div class="empty-hint">None detected this period.</div>'; return; }
+    el.innerHTML = items.map(function(s) {
+      var color = avatarColor(s.vendor);
+      return '<div class="txn-row"><div class="txn-left">' +
+        '<div class="txn-avatar" style="background:' + color + '; box-shadow:0 0 10px ' + color + '99;">' + s.vendor[0].toUpperCase() + '</div>' +
+        '<div><p class="txn-vendor">' + s.vendor + '</p><p class="txn-meta">' + s.category + '</p></div>' +
+        '</div><div class="txn-amount">-' + s.amount.toLocaleString(undefined, {minimumFractionDigits:2}) + '</div></div>';
+    }).join("");
+  }
+
+  function renderDonut() {
+    var isLight = document.documentElement.getAttribute("data-theme") === "light";
+    var textColor = isLight ? "#0F1B2D" : "#E8FBFF";
+    var mutedColor = isLight ? "#64748B" : "#5E86A0";
+    var colors = isLight ? categoryColorsLight : categoryColorsDark;
+    var labels = ["Investment", "Rent", "Groceries", "SaaS", "Shopping", "Interest Income", "Subscriptions", "Food", "Income (Dividends)", "Transfer"];
+    var values = [47500, 20000, 3200, 2999, 2949, 2124, 1366, 999, 705, 160];
+    Plotly.newPlot("donut", [{
+      labels: labels, values: values, type: "pie", hole: 0.62,
+      marker: { colors: colors, line: { color: isLight ? "#FFFFFF" : "#081726", width: 3 } },
+      textinfo: "none",
+      hovertemplate: "%{label}: %{value:,.0f}<extra></extra>"
+    }], {
+      showlegend: true,
+      legend: { orientation: "v", yanchor: "middle", y: 0.5, xanchor: "left", x: 1.02, font: { color: textColor, size: 12 } },
+      paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+      margin: { l: 0, r: 0, t: 10, b: 10 }, height: 260,
+      annotations: [{ text: "82,002<br><span style='font-size:11px;color:" + mutedColor + "'>total spent</span>", x: 0.5, y: 0.5, showarrow: false, font: { size: 18, color: textColor } }]
+    }, { displayModeBar: false, responsive: true });
+  }
+
+  function toggleTheme() {
+    var html = document.documentElement;
+    var isDark = html.getAttribute("data-theme") === "dark";
+    html.setAttribute("data-theme", isDark ? "light" : "dark");
+    document.getElementById("themeBtn").textContent = isDark ? "🌙 Dark" : "☀️ Light";
+    renderTxnList();
+    renderRecurringList("subList", subscriptions);
+    renderRecurringList("invList", investments);
+    renderDonut();
+  }
+
+  renderTxnList();
+  renderRecurringList("subList", subscriptions);
+  renderRecurringList("invList", investments);
+  renderDonut();
+  runPipeline("Prepare July 2026 reconciliation");
+</script>
+</body>
+</html>

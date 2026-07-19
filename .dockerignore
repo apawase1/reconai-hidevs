@@ -1,0 +1,16 @@
+# Never bake secrets or local artifacts into the image.
+.env
+.env.example
+credentials.json
+token.json
+
+venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.DS_Store
+
+tests/
+*.md
+ReconAI_Hackathon_Plan*.md

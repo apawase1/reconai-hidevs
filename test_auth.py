@@ -15,14 +15,14 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-# Scopes must match what you added to the OAuth consent screen.
-# If you add more scopes later, delete token.json and re-run —
-# a cached token only carries the scopes it was first granted.
+# Scopes must match tools/google_auth.py exactly (that's what the app
+# actually uses). If you add more scopes later, delete token.json and
+# re-run — a cached token only carries the scopes it was first granted.
+# Drive scope dropped for now — Discovery is Gmail-only to cut API/Gemini
+# credit usage. See RECONAI_ARCHITECTURE_ADDENDUM.md section D.
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/drive.readonly",
     "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/tasks",
 ]
 
 CREDENTIALS_FILE = "credentials.json"

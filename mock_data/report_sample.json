@@ -1,0 +1,118 @@
+{
+  "status": "ok",
+  "total_spent": 82002.0,
+  "category_breakdown": {
+    "Interest Income": 2124.0,
+    "Groceries": 3200.0,
+    "Shopping": 2949.0,
+    "SaaS": 2999.0,
+    "Investment": 47500.0,
+    "Food": 999.0,
+    "Transfer": 160.0,
+    "Income (Dividends)": 705.0,
+    "Subscriptions": 1366.0,
+    "Rent": 20000.0
+  },
+  "category_vendors": {
+    "Interest Income": [
+      "HDFC Bank"
+    ],
+    "Groceries": [
+      "BigBasket"
+    ],
+    "Shopping": [
+      "Amazon",
+      "Frame Kro"
+    ],
+    "SaaS": [
+      "Anthropic PBC",
+      "Google Cloud Platform"
+    ],
+    "Investment": [
+      "SIP Investment",
+      "NACH Mutual Fund SIP"
+    ],
+    "Food": [
+      "Sri Krishna Sagar",
+      "Indira Priyadarshini"
+    ],
+    "Transfer": [
+      "q635075112@ybl",
+      "q958687424@ybl"
+    ],
+    "Income (Dividends)": [
+      "Tata Power Company Ltd"
+    ],
+    "Subscriptions": [
+      "Netflix",
+      "Disney+ Hotstar",
+      "Amazon Prime",
+      "Spotify"
+    ],
+    "Rent": [
+      "Landlord - Dom's Residence"
+    ]
+  },
+  "subscriptions": [
+    {
+      "vendor": "Anthropic PBC",
+      "amount": 1899.0,
+      "category": "SaaS"
+    },
+    {
+      "vendor": "Google Cloud Platform",
+      "amount": 1100.0,
+      "category": "SaaS"
+    },
+    {
+      "vendor": "Netflix",
+      "amount": 649.0,
+      "category": "Subscriptions"
+    },
+    {
+      "vendor": "Disney+ Hotstar",
+      "amount": 299.0,
+      "category": "Subscriptions"
+    },
+    {
+      "vendor": "Amazon Prime",
+      "amount": 299.0,
+      "category": "Subscriptions"
+    },
+    {
+      "vendor": "Spotify",
+      "amount": 119.0,
+      "category": "Subscriptions"
+    }
+  ],
+  "recurring_investments": [
+    {
+      "vendor": "SIP Investment",
+      "amount": 39000.0,
+      "category": "Investment"
+    },
+    {
+      "vendor": "NACH Mutual Fund SIP",
+      "amount": 8500.0,
+      "category": "Investment"
+    }
+  ],
+  "payments_pending": [
+    {
+      "vendor": "BESCOM",
+      "amount": 1240.0,
+      "category": "Utilities",
+      "date": "2026-07-16"
+    }
+  ],
+  "duplicate_count": 1,
+  "missing_invoice_count": 1,
+  "recurring_count": 10,
+  "gst_eligible_total": 2999.0,
+  "over_budget_categories": [
+    "Groceries",
+    "Shopping",
+    "SaaS"
+  ],
+  "summary_markdown": "# Monthly Reconciliation Report\n\n**Total spent:** 82,002.00\n**Transactions processed:** 20\n**Duplicates flagged (excluded from totals above):** 1\n**Missing invoices:** 1\n**Recurring charges:** 10\n**GST-eligible total:** 2,999.00\n\n## Where it went (by category)\n- **Investment:** 47,500.00 (58%) \u2014 SIP Investment, NACH Mutual Fund SIP\n- **Rent:** 20,000.00 (24%) \u2014 Landlord - Dom's Residence\n- **Groceries:** 3,200.00 (4%) \u2014 BigBasket\n- **SaaS:** 2,999.00 (4%) \u2014 Anthropic PBC, Google Cloud Platform\n- **Shopping:** 2,949.00 (4%) \u2014 Amazon, Frame Kro\n- **Interest Income:** 2,124.00 (3%) \u2014 HDFC Bank\n- **Subscriptions:** 1,366.00 (2%) \u2014 Netflix, Disney+ Hotstar, Amazon Prime, Spotify\n- **Food:** 999.00 (1%) \u2014 Sri Krishna Sagar, Indira Priyadarshini\n- **Income (Dividends):** 705.00 (1%) \u2014 Tata Power Company Ltd\n- **Transfer:** 160.00 (0%) \u2014 q635075112@ybl, q958687424@ybl\n\n## Subscriptions you have\n- **Anthropic PBC:** 1,899.00 (SaaS)\n- **Google Cloud Platform:** 1,100.00 (SaaS)\n- **Netflix:** 649.00 (Subscriptions)\n- **Disney+ Hotstar:** 299.00 (Subscriptions)\n- **Amazon Prime:** 299.00 (Subscriptions)\n- **Spotify:** 119.00 (Subscriptions)\n\n## Recurring investments\n- **SIP Investment:** 39,000.00 (Investment)\n- **NACH Mutual Fund SIP:** 8,500.00 (Investment)\n\n## Payments pending (not yet paid, not included in total spent)\n- **BESCOM:** 1,240.00 due \u2014 Utilities (2026-07-16)\n\n## Over budget\n- Groceries\n- Shopping\n- SaaS"
+}
