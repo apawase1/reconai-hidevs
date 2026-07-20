@@ -25,6 +25,7 @@ from google.genai import types
 
 from agents import root_agent
 from tools.google_auth import (
+    GoogleSignInError,
     clear_cached_credentials,
     get_credentials,
     get_signed_in_email,
@@ -672,10 +673,16 @@ if not st.session_state.gmail_authed:
                     st.session_state.gmail_authed = True
                     st.session_state.gmail_email = get_signed_in_email(creds)
                     st.rerun()
-                except FileNotFoundError as e:
-                    st.error(str(e))
-                except Exception as e:
-                    st.error(f"Sign-in failed: {e}")
+                except GoogleSignInError as e:
+                    st.error(f"⚠️ {e}")
+                except Exception:
+                    # Anything not already translated into a friendly
+                    # GoogleSignInError — never show raw library/stack
+                    # trace text to the person signing in.
+                    st.error(
+                        "⚠️ Something went wrong while signing in. "
+                        "Please try again in a moment."
+                    )
     st.stop()
 # --- end sign-in gate ------------------------------------------------------
 

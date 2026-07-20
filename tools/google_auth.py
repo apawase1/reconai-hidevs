@@ -22,12 +22,22 @@ Cloud Run instances are stateless, so expect to refresh/re-mint after long
 idle periods. See README.md "Deployment" section.
 """
 
+import json
 import os
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
+
+
+class GoogleSignInError(Exception):
+    """Raised for anything that goes wrong during Google sign-in, with a
+    message that's already safe and friendly to show directly in the UI —
+    no library internals (JSON parse errors, stack traces, file paths) leak
+    through to the person clicking the button. Callers (app.py) can just
+    st.error(str(e)) without translating anything themselves."""
+
 
 SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -92,8 +102,10 @@ def get_credentials() -> Credentials:
         A valid google.oauth2.credentials.Credentials object.
 
     Raises:
-        FileNotFoundError: if no token.json exists and credentials.json is
-            also missing, so no flow can be started.
+        GoogleSignInError: for any sign-in failure — missing/invalid
+            credentials.json, or the browser consent flow not completing.
+            The message is already plain-English and UI-safe; callers can
+            display str(e) directly without translating anything.
     """
     global _creds_cache
 
@@ -102,14 +114,32 @@ def get_credentials() -> Credentials:
         return cached
 
     if not os.path.exists(CREDENTIALS_FILE):
-        raise FileNotFoundError(
-            f"{CREDENTIALS_FILE} not found. Download OAuth Desktop "
-            "credentials from Google Cloud Console and place it here, "
-            "or run test_auth.py locally once and ship the resulting "
-            "token.json to your deployment as a secret."
+        raise GoogleSignInError(
+            "Google sign-in isn't set up for this app yet. Please contact "
+            "the app owner to finish setup before signing in."
         )
-    flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-    creds = flow.run_local_server(port=0)
+
+    try:
+        with open(CREDENTIALS_FILE) as f:
+            content = f.read()
+        if not content.strip():
+            raise ValueError("empty file")
+        json.loads(content)  # validate before handing off to google-auth-oauthlib
+        flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+    except (json.JSONDecodeError, ValueError, KeyError, OSError):
+        raise GoogleSignInError(
+            "Google sign-in is temporarily unavailable — there's a setup "
+            "issue on our end. Please contact the app owner."
+        )
+
+    try:
+        creds = flow.run_local_server(port=0)
+    except Exception:
+        raise GoogleSignInError(
+            "Sign-in didn't finish — this can happen if the browser "
+            'window was closed or the sign-in was cancelled. Please click '
+            '"Sign in with Google" and try again.'
+        )
 
     with open(TOKEN_FILE, "w") as f:
         f.write(creds.to_json())
