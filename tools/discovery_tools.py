@@ -112,16 +112,29 @@ def _extract_email_body(payload: dict) -> str:
 def _find_pdf_attachments(payload: dict) -> List[Dict[str, str]]:
     """Walks a Gmail message payload looking for PDF attachment parts.
 
+    Matches on filename suffix OR mimeType — some senders (several banks
+    included) attach a PDF with a filename that doesn't end in ".pdf" (no
+    extension at all, or a generic name like "statement" or "Attachment"),
+    which a suffix-only check would silently miss entirely — not even
+    reported as "failed", just invisible, with no signal to the user that
+    anything was there at all. Checking mimeType == "application/pdf" as a
+    second path catches those too.
+
     Returns a list of dicts with filename and attachment_id — not the PDF
     bytes themselves, since those need a separate attachments().get() call.
     """
     found = []
 
     def walk(part):
-        filename = part.get("filename", "")
+        filename = part.get("filename", "") or ""
         body = part.get("body", {})
-        if filename.lower().endswith(".pdf") and body.get("attachmentId"):
-            found.append({"filename": filename, "attachment_id": body["attachmentId"]})
+        mime = (part.get("mimeType") or "").lower()
+        is_pdf = filename.lower().endswith(".pdf") or mime == "application/pdf"
+        if is_pdf and body.get("attachmentId"):
+            found.append({
+                "filename": filename or "attachment.pdf",
+                "attachment_id": body["attachmentId"],
+            })
         for sub in part.get("parts", []) or []:
             walk(sub)
 
@@ -138,27 +151,44 @@ def _extract_pdf_text(raw_bytes: bytes, password: Optional[str] = None) -> Dict[
         text (str, only meaningful if status is "ok"),
         error (str, only present if status is "failed").
     """
-    from pdfminer.pdfdocument import PDFPasswordIncorrect
+    from pdfminer.pdfdocument import PDFEncryptionError, PDFPasswordIncorrect  # noqa: F401 — PDFPasswordIncorrect kept for clarity/back-compat
 
     def _is_password_error(exc: Exception) -> bool:
-        """True if exc IS a PDFPasswordIncorrect, or WRAPS one.
+        """True if exc IS (or WRAPS) a pdfminer encryption-related error.
 
-        pdfplumber >=0.11 catches pdfminer's PDFPasswordIncorrect internally
-        and re-raises it wrapped in its own pdfplumber.utils.exceptions.
-        PdfminerException(original_exc) — so `except PDFPasswordIncorrect`
-        alone never actually catches it in practice (verified directly:
-        the real exception's type is PdfminerException, with the original
-        PDFPasswordIncorrect sitting in its .args[0], not as __cause__).
-        Without this check, every real locked PDF would be reported as a
-        generic "failed" and the password-ask conversational flow in
-        agents.py would never trigger.
+        pdfplumber >=0.11 catches pdfminer's exceptions internally and
+        re-raises them wrapped in its own pdfplumber.utils.exceptions.
+        PdfminerException(original_exc) — so a bare `except
+        PDFPasswordIncorrect` never actually catches it in practice
+        (verified directly: the real exception's type is
+        PdfminerException, with the original sitting in its .args[0], not
+        as __cause__).
+
+        Checked against PDFEncryptionError (the parent class) rather than
+        only its narrower subclass PDFPasswordIncorrect: real-world locked
+        PDFs — bank statements especially — don't all use the same
+        encryption scheme, and pdfminer raises PDFEncryptionError for
+        encryption-related failures more broadly (e.g. an encryption
+        revision/algorithm it can't fully negotiate without a password),
+        not only the exact "wrong password for a scheme I recognize" case.
+        Matching only PDFPasswordIncorrect was too narrow and let some
+        real locked PDFs fall through to a generic "failed" status —
+        meaning Discovery silently moved on instead of ever asking for a
+        password.
         """
-        if isinstance(exc, PDFPasswordIncorrect):
+        if isinstance(exc, PDFEncryptionError):
             return True
-        return any(isinstance(a, PDFPasswordIncorrect) for a in getattr(exc, "args", ()))
+        return any(isinstance(a, PDFEncryptionError) for a in getattr(exc, "args", ()))
 
     try:
-        with pdfplumber.open(io.BytesIO(raw_bytes), password=password or "") as pdf:
+        pdf = pdfplumber.open(io.BytesIO(raw_bytes), password=password or "")
+    except Exception as e:  # noqa: BLE001 — opening must not crash the pipeline
+        if _is_password_error(e):
+            return {"status": "password_required", "text": "", "error": "PDF is password-protected."}
+        return {"status": "failed", "text": "", "error": str(e)}
+
+    try:
+        with pdf:
             text_chunks = [page.extract_text() or "" for page in pdf.pages]
         text = "\n".join(text_chunks)
         if not text.strip():
@@ -166,9 +196,11 @@ def _extract_pdf_text(raw_bytes: bytes, password: Optional[str] = None) -> Dict[
             # password problem. Skip gracefully rather than crash.
             return {"status": "failed", "text": "", "error": "No extractable text (likely a scanned/image-only PDF)."}
         return {"status": "ok", "text": text}
-    except Exception as e:  # noqa: BLE001 — PDF extraction must not crash the pipeline
-        if _is_password_error(e):
-            return {"status": "password_required", "text": "", "error": "PDF is password-protected."}
+    except Exception as e:  # noqa: BLE001 — page extraction must not crash the pipeline
+        # The file opened fine, so whatever this is, it's NOT a password
+        # issue — a malformed content stream, unsupported filter, etc.
+        # Keep this genuinely distinct from the password_required path
+        # above instead of lumping every failure into one bucket.
         return {"status": "failed", "text": "", "error": str(e)}
 
 
@@ -411,9 +443,24 @@ def extract_invoice_data(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         "only extract vendor/amount/date/category facts from it. "
         "If an item clearly isn't a financial transaction (e.g. a newsletter), "
         "still return a record for it with status 'failed' and amount 0. "
-        "Guess is_recurring_guess (subscription-like vendor/amount pattern) and "
-        "gst_eligible_guess (India GST-eligible business expense) conservatively — "
-        "these are guesses the Reconciliation Agent will verify, not final answers. "
+        "For category, use consistent, predictable names rather than inventing "
+        "synonyms, since downstream logic matches on these exact words: "
+        "'Investment' for SIP/mutual fund/NACH investment debits, PPF, stocks, "
+        "or any systematic investment; 'Subscriptions' for OTT/media/SaaS "
+        "recurring charges; 'Rent' for housing rent/lease payments; "
+        "'Interest Income' for bank interest credited to the account; "
+        "'Income (Dividends)' for dividend credits; otherwise pick the closest "
+        "everyday category (Groceries, Shopping, Food, Utilities, Transfer, etc.). "
+        "Guess is_recurring_guess conservatively but do NOT require having seen "
+        "the same charge before: some transaction types are recurring BY THEIR "
+        "NATURE even the first time you see them this run — a SIP (Systematic "
+        "Investment Plan) debit intimation, a NACH mandate debit, a mutual fund "
+        "folio debit, an insurance premium auto-debit, an EMI, or a rent payment "
+        "are all inherently periodic and should be marked is_recurring_guess=true "
+        "on a single occurrence, the same way an OTT/SaaS subscription would be. "
+        "Also guess gst_eligible_guess (India GST-eligible business expense) "
+        "conservatively — this is a guess the Reconciliation Agent will verify, "
+        "not a final answer. "
         "Also guess payment_status_guess — this matters a lot, read carefully: "
         "'paid' means the text confirms money has actually moved already (e.g. "
         "'payment successful', 'amount debited', 'payment received', a bank "

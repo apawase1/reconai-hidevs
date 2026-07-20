@@ -15,6 +15,7 @@ from tools.discovery_tools import (
     _default_query,
     _extract_email_body,
     _extract_pdf_text,
+    _find_pdf_attachments,
     _strip_html,
     extract_invoice_data,
     fetch_invoice_emails,
@@ -306,6 +307,44 @@ def test_extract_pdf_text_reports_password_required(monkeypatch):
     result = _extract_pdf_text(b"fake-pdf-bytes", password="wrong-guess")
     assert result["status"] == "password_required"
     assert "text" in result and result["text"] == ""
+
+
+def test_extract_pdf_text_reports_password_required_for_generic_encryption_error(monkeypatch):
+    # Regression test for a real bug found against an actual bank-issued
+    # locked PDF: it raised PDFEncryptionError (the parent class), not the
+    # narrower PDFPasswordIncorrect subclass the code used to check for
+    # specifically — so it fell through to a generic "failed" status and
+    # Discovery silently moved on instead of ever asking for a password.
+    from pdfminer.pdfdocument import PDFEncryptionError
+
+    def fake_open(*args, **kwargs):
+        raise PDFEncryptionError("unsupported encryption revision")
+
+    monkeypatch.setattr("pdfplumber.open", fake_open)
+    result = _extract_pdf_text(b"fake-pdf-bytes")
+    assert result["status"] == "password_required"
+
+
+def test_find_pdf_attachments_detects_via_mime_type_without_pdf_suffix():
+    # Regression test: some senders attach a PDF whose filename has no
+    # ".pdf" suffix at all (no extension, or a generic name like
+    # "Attachment") — a suffix-only check misses it completely, not even
+    # as a "failed" item, just silently invisible.
+    payload = {
+        "mimeType": "multipart/mixed",
+        "parts": [
+            {"mimeType": "text/plain", "body": {"data": ""}},
+            {
+                "filename": "Statement",
+                "mimeType": "application/pdf",
+                "body": {"attachmentId": "att-no-suffix"},
+            },
+        ],
+    }
+    found = _find_pdf_attachments(payload)
+    assert len(found) == 1
+    assert found[0]["attachment_id"] == "att-no-suffix"
+    assert found[0]["filename"] == "Statement"
 
 
 def _build_real_encrypted_pdf(user_password: str, text: str) -> bytes:
