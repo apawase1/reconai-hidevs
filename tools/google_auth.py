@@ -40,8 +40,53 @@ TOKEN_FILE = os.getenv("GOOGLE_TOKEN_FILE", "token.json")
 _creds_cache = None  # process-local cache so we don't re-read disk every tool call
 
 
+def load_cached_credentials() -> Credentials | None:
+    """Silently loads and refreshes existing credentials from TOKEN_FILE,
+    WITHOUT ever opening a browser or starting the interactive consent
+    flow. Returns None if there's no valid (or refreshable) token yet.
+
+    This is the piece that lets app.py show an explicit "Sign in with
+    Google" screen at app open instead of only discovering there's no
+    session mid-conversation, the first time a Gmail tool happens to run:
+    the UI calls this once on load to check "is anyone already signed
+    in?" and only falls through to the interactive flow (via
+    get_credentials(), below) when the user deliberately clicks a
+    sign-in button.
+    """
+    global _creds_cache
+    if _creds_cache and _creds_cache.valid:
+        return _creds_cache
+
+    if not os.path.exists(TOKEN_FILE):
+        return None
+
+    try:
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+    except (ValueError, OSError):
+        return None
+
+    if creds and creds.valid:
+        _creds_cache = creds
+        return creds
+
+    if creds and creds.expired and creds.refresh_token:
+        try:
+            creds.refresh(Request())
+        except Exception:
+            return None
+        with open(TOKEN_FILE, "w") as f:
+            f.write(creds.to_json())
+        _creds_cache = creds
+        return creds
+
+    return None
+
+
 def get_credentials() -> Credentials:
     """Loads (or refreshes, or mints) OAuth credentials for Gmail/Sheets.
+
+    Tries the silent path first (load_cached_credentials); only starts the
+    interactive browser consent flow if there's genuinely no usable token.
 
     Returns:
         A valid google.oauth2.credentials.Credentials object.
@@ -51,34 +96,53 @@ def get_credentials() -> Credentials:
             also missing, so no flow can be started.
     """
     global _creds_cache
-    if _creds_cache and _creds_cache.valid:
-        return _creds_cache
 
-    creds = None
-    if os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
+    cached = load_cached_credentials()
+    if cached:
+        return cached
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            if not os.path.exists(CREDENTIALS_FILE):
-                raise FileNotFoundError(
-                    f"{CREDENTIALS_FILE} not found. Download OAuth Desktop "
-                    "credentials from Google Cloud Console and place it here, "
-                    "or run test_auth.py locally once and ship the resulting "
-                    "token.json to your deployment as a secret."
-                )
-            flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
+    if not os.path.exists(CREDENTIALS_FILE):
+        raise FileNotFoundError(
+            f"{CREDENTIALS_FILE} not found. Download OAuth Desktop "
+            "credentials from Google Cloud Console and place it here, "
+            "or run test_auth.py locally once and ship the resulting "
+            "token.json to your deployment as a secret."
+        )
+    flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+    creds = flow.run_local_server(port=0)
 
-        with open(TOKEN_FILE, "w") as f:
-            f.write(creds.to_json())
+    with open(TOKEN_FILE, "w") as f:
+        f.write(creds.to_json())
 
     _creds_cache = creds
     return creds
 
 
+def get_signed_in_email(creds: Credentials) -> str | None:
+    """Best-effort fetch of the signed-in Gmail address, purely for display
+    ("Signed in as ..."). Returns None on any failure rather than raising —
+    this is cosmetic, not load-bearing for the actual pipeline."""
+    try:
+        service = build("gmail", "v1", credentials=creds)
+        profile = service.users().getProfile(userId="me").execute()
+        return profile.get("emailAddress")
+    except Exception:
+        return None
+
+
 def get_service(api_name: str, version: str):
     """Builds a cached googleapiclient service (e.g. get_service('gmail', 'v1'))."""
     return build(api_name, version, credentials=get_credentials())
+
+
+def clear_cached_credentials() -> None:
+    """Signs out: drops the in-memory credential cache and deletes
+    token.json from disk, so the next load_cached_credentials()/
+    get_credentials() call has nothing to find and the UI's sign-in
+    screen reappears. Used by app.py's "Sign out / switch account"
+    button — the same effect as the manual `rm token.json` + restart
+    dance, without leaving the running process."""
+    global _creds_cache
+    _creds_cache = None
+    if os.path.exists(TOKEN_FILE):
+        os.remove(TOKEN_FILE)

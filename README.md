@@ -84,13 +84,15 @@ reconai/
    ```
 2. **Google Cloud OAuth credentials**: create an OAuth 2.0 Desktop app client in Google Cloud Console, enable the Gmail API, download the client secret as `credentials.json` into the project root.
 3. **Gemini API key**: copy `.env.example` to `.env` and fill in `GOOGLE_API_KEY`.
-4. **First auth**: run `python test_auth.py` once — it opens a browser for consent and saves `token.json`. Re-run it if you ever add scopes back (a cached token only carries the scopes it was first granted).
-5. **Run locally**:
+4. **Run locally**:
    ```
    streamlit run app.py
    ```
+   The app itself now handles first-time sign-in: on open, it shows a **"Sign in with Google"** screen and blocks the rest of the UI until you click it and complete the browser consent flow — no separate script to run first. (`test_auth.py` still exists as a standalone way to pre-mint `token.json` before a Cloud Run deploy, since that's a headless environment with no browser to pop open — see "Deployment" below.)
 
 `credentials.json`, `token.json`, and `.env` are git-ignored and docker-ignored — never commit them.
+
+**Switching accounts mid-session:** the sidebar has a **"Sign out / switch account"** button — click it and the app immediately drops back to the sign-in screen, ready for a different Google account, no manual file deletion or restart needed.
 
 ## Usage
 
@@ -107,8 +109,11 @@ reconai/
 ## Switching to a different Google account
 
 1. Add the other account's email as a **Test user** in Google Cloud Console → APIs & Services → OAuth consent screen, *before* the demo — unverified apps block sign-in for anyone not on that list.
-2. Back up and clear the current token: `mv token.json token_backup.json`, then restart the app. The next Gmail call re-triggers the OAuth consent flow for a new account.
-3. Afterward, restore your session: `mv token_backup.json token.json` and restart again.
+2. In the app's sidebar, click **"Sign out / switch account"** — this drops the cached token and immediately shows the sign-in screen again, no restart or manual file juggling needed.
+3. Click **"Sign in with Google"** and pick the other account in the browser window that opens.
+4. To go back afterward, sign out again and sign back in with your own account the same way.
+
+(The old manual approach — `mv token.json token_backup.json`, restart, then `mv` it back — still works if you're running outside Streamlit, e.g. scripting against the tools directly, but the in-app button is the fast path for a live demo.)
 
 ## Deployment — Google Cloud Run
 

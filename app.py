@@ -24,6 +24,12 @@ from dotenv import load_dotenv
 from google.genai import types
 
 from agents import root_agent
+from tools.google_auth import (
+    clear_cached_credentials,
+    get_credentials,
+    get_signed_in_email,
+    load_cached_credentials,
+)
 from tools.reporting_tools import generate_monthly_report
 
 load_dotenv()
@@ -620,6 +626,60 @@ with _theme_col:
         st.rerun()
 
 
+# --- Gmail sign-in gate ---------------------------------------------------
+# Blocks the rest of the app (sidebar config, chat, dashboard) until the
+# user is authenticated with Google. This makes the OAuth prompt happen
+# right when the demo opens, not silently mid-conversation the first time
+# a Gmail tool happens to run — which is what used to happen (get_
+# credentials() was only ever called lazily, deep inside fetch_invoice_
+# emails). On every rerun we first check silently (load_cached_
+# credentials — never opens a browser) so an already-signed-in session
+# just sails through; the interactive flow only starts on an explicit
+# button click.
+if "gmail_email" not in st.session_state:
+    st.session_state.gmail_email = None
+if "gmail_authed" not in st.session_state:
+    st.session_state.gmail_authed = False
+
+if not st.session_state.gmail_authed:
+    _cached_creds = load_cached_credentials()
+    if _cached_creds:
+        st.session_state.gmail_authed = True
+        st.session_state.gmail_email = get_signed_in_email(_cached_creds)
+
+if not st.session_state.gmail_authed:
+    st.markdown(
+        f"""
+        <div style="max-width:440px; margin: 60px auto 24px; text-align:center;">
+            <div class="recon-logo" style="margin:0 auto 18px; width:56px; height:56px; font-size:24px;">R</div>
+            <h2 style="margin:0 0 8px; font-family:'Orbitron', sans-serif; letter-spacing:0.04em;">Sign in to ReconAI</h2>
+            <p style="color:{TEXT_MUTED}; font-size:14px; line-height:1.5;">
+                Connect your Google account so ReconAI can read invoices and
+                receipts from Gmail (read-only — it can never send, delete,
+                or modify anything). You'll pick your account in a browser
+                window that opens next.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    _gate_l, _gate_c, _gate_r = st.columns([1, 1, 1])
+    with _gate_c:
+        if st.button("🔐  Sign in with Google", use_container_width=True):
+            with st.spinner("Waiting for you to finish signing in in the browser window..."):
+                try:
+                    creds = get_credentials()
+                    st.session_state.gmail_authed = True
+                    st.session_state.gmail_email = get_signed_in_email(creds)
+                    st.rerun()
+                except FileNotFoundError as e:
+                    st.error(str(e))
+                except Exception as e:
+                    st.error(f"Sign-in failed: {e}")
+    st.stop()
+# --- end sign-in gate ------------------------------------------------------
+
+
 @st.cache_resource
 def get_runner():
     from google.adk.runners import InMemoryRunner
@@ -630,6 +690,14 @@ runner = get_runner()
 
 # --- Sidebar: run configuration ---
 with st.sidebar:
+    st.caption(f"✅ Signed in as **{st.session_state.gmail_email or 'your Google account'}**")
+    if st.button("Sign out / switch account", use_container_width=True):
+        clear_cached_credentials()
+        st.session_state.gmail_authed = False
+        st.session_state.gmail_email = None
+        st.rerun()
+    st.divider()
+
     st.header("Reconciliation setup")
     st.caption(
         "🔒 **Google Sheets sync** — coming soon. This run reports straight "
