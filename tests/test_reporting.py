@@ -209,3 +209,61 @@ def test_salary_income_vs_business_payroll_direction():
     assert r["total_spent"] == 30000
     assert r["category_breakdown"] == {"Payroll": 30000}
     assert r["income_breakdown"] == {"Salary Income": 80000}
+
+
+def test_business_personal_split_on_spend():
+    # A freelancer/small-business owner's inbox mixes both - spend must
+    # split by each transaction's own spend_type_guess, not one assumption
+    # for the whole account, and business_total + personal_total +
+    # untagged_total must equal total_spent exactly.
+    data = {
+        "transactions": [
+            _txn(vendor="Google Cloud Platform", amount=1100, category="SaaS", spend_type_guess="business"),
+            _txn(vendor="BigBasket", amount=3200, category="Groceries", spend_type_guess="personal"),
+            _txn(vendor="q635075112@ybl", amount=80, category="Transfer", spend_type_guess="unknown"),
+        ],
+        "missing_invoices": [],
+        "budget_summary": {},
+    }
+    r = generate_monthly_report(data)
+    assert r["total_spent"] == 4380
+    assert r["business_total"] == 1100
+    assert r["personal_total"] == 3200
+    assert r["untagged_total"] == 80
+    assert r["business_total"] + r["personal_total"] + r["untagged_total"] == r["total_spent"]
+    assert r["business_category_breakdown"] == {"SaaS": 1100}
+    assert r["personal_category_breakdown"] == {"Groceries": 3200}
+
+
+def test_business_personal_split_missing_spend_type_lands_in_untagged():
+    # A transaction with no spend_type_guess at all (not even "unknown")
+    # must still be counted somewhere, not silently dropped from the split.
+    data = {
+        "transactions": [_txn(vendor="Mystery Vendor", amount=500, category="Shopping")],
+        "missing_invoices": [],
+        "budget_summary": {},
+    }
+    r = generate_monthly_report(data)
+    assert r["untagged_total"] == 500
+    assert r["business_total"] == 0
+    assert r["personal_total"] == 0
+    assert "Shopping" not in r["business_category_breakdown"]
+    assert "Shopping" not in r["personal_category_breakdown"]
+
+
+def test_business_personal_split_on_income():
+    # Client payments received for freelance work are business income;
+    # dividends/interest are personal - both split the same way as spend.
+    data = {
+        "transactions": [
+            _txn(vendor="Razorpay - Client", amount=45000, category="Client Payment", spend_type_guess="business"),
+            _txn(vendor="Tata Power Company Ltd", amount=705, category="Income (Dividends)", spend_type_guess="personal"),
+        ],
+        "missing_invoices": [],
+        "budget_summary": {},
+    }
+    r = generate_monthly_report(data)
+    assert r["total_income"] == 45705
+    assert r["business_income_total"] == 45000
+    assert r["personal_income_total"] == 705
+    assert r["untagged_income_total"] == 0

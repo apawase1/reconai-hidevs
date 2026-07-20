@@ -385,6 +385,7 @@ EXTRACTION_SCHEMA = {
             "is_recurring_guess": {"type": "boolean"},
             "gst_eligible_guess": {"type": "boolean"},
             "payment_status_guess": {"type": "string", "enum": ["paid", "pending", "unknown"]},
+            "spend_type_guess": {"type": "string", "enum": ["business", "personal", "unknown"]},
             "status": {"type": "string", "enum": ["ok", "partial", "failed"]},
         },
         "required": ["source_id", "vendor", "amount", "date", "payment_status_guess", "status"],
@@ -413,8 +414,8 @@ def extract_invoice_data(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         dict with keys: status ("ok"/"partial"/"failed"), count (int),
         transactions (list of dicts: source_id, vendor, amount, date,
         category, is_recurring_guess, gst_eligible_guess,
-        payment_status_guess, status), error (str, only present if status
-        is "failed").
+        payment_status_guess, spend_type_guess, status), error (str, only
+        present if status is "failed").
     """
     if not items:
         return {"status": "ok", "count": 0, "transactions": []}
@@ -473,8 +474,12 @@ def extract_invoice_data(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         "indistinguishable downstream. "
         "For a small-business user, also recognize: 'GST Payment'/'GST Refund', "
         "'TDS', 'Advance Tax', 'Loan EMI' (business loan installments), "
-        "'Vendor Payment' (recurring supplier/vendor bills), and 'Payroll' "
-        "(money paid out to employees). "
+        "'Vendor Payment' (recurring supplier/vendor bills), 'Payroll' "
+        "(money paid out to employees), 'Client Payment' for money RECEIVED "
+        "for freelance/consulting/contract work (this is business income, "
+        "the opposite direction of Vendor Payment/Payroll — never confuse "
+        "the two), and 'Business Income' for shop/café sales revenue "
+        "collected (POS settlements, daily UPI collections from customers). "
         "Otherwise pick the closest everyday category (Groceries, Shopping, "
         "Food, Utilities, Transfer, etc.). "
         "Guess is_recurring_guess conservatively but do NOT require having seen "
@@ -505,7 +510,24 @@ def extract_invoice_data(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         "scheduled for DATE', 'upcoming NACH debit on DATE'). 'unknown' if you "
         "truly can't tell either way. Default to 'paid' only when the text "
         "actually confirms a completed payment — do not assume paid just "
-        "because an amount is mentioned.\n\n"
+        "because an amount is mentioned. "
+        "Also guess spend_type_guess — 'business' or 'personal' (or 'unknown' "
+        "if you genuinely can't tell). Freelancers and small business owners "
+        "in India routinely run both through the same inbox/account, so do "
+        "NOT assume everything is one or the other — judge each transaction "
+        "on its own signals. 'business' signals: a GST/tax invoice addressed "
+        "to a business/trade name or with a GSTIN, software/tools/hosting/"
+        "domain subscriptions used for client or shop work, a client payment "
+        "received for freelance/consulting/contract work, vendor/supplier "
+        "bills, business loan EMIs, payroll paid to staff, GST payments, "
+        "business-premises rent, or shop/cafe supply and equipment purchases "
+        "(ingredients, POS systems, furniture). 'personal' signals: "
+        "groceries, personal shopping, OTT/media subscriptions, personal "
+        "rent, personal investment contributions (SIP/RD/FD/stocks/gold "
+        "bought with personal savings) and their redemption/gains, personal "
+        "loan EMIs, and dividends/interest/salary credited to a personal "
+        "account. If the text gives no clear signal either way, use "
+        "'unknown' rather than forcing a guess.\n\n"
         f"Items:\n{json.dumps(batch_input, ensure_ascii=False)}"
     )
 

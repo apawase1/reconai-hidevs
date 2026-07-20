@@ -38,7 +38,7 @@ _INVESTMENT_CATEGORY_HINTS = (
 _INVESTMENT_GAIN_HINTS = ("investment gain", "capital gain", "redemption", "maturity")
 _INCOME_CATEGORY_HINTS = (
     "income", "dividend", "interest", "salary income", "salary credit",
-    "refund", "cashback",
+    "refund", "cashback", "client payment",
 )
 _HOUSING_CATEGORY_HINTS = ("rent", "housing", "lease", "mortgage")
 
@@ -86,6 +86,18 @@ def _is_inflow_category(category: str) -> bool:
     return _is_income_category(category) or _is_investment_gain_category(category)
 
 
+def _spend_type(t: Dict[str, Any]) -> str:
+    """Normalizes a transaction's spend_type_guess to exactly "business",
+    "personal", or "untagged" (never a raw/blank/unexpected value) — so
+    every transaction lands in exactly one of the three business/personal
+    split buckets below, none silently dropped. Freelancers and small
+    business owners in India routinely mix both through one inbox/account
+    (see extract_invoice_data's prompt), so this is a per-transaction split,
+    not an account-wide assumption."""
+    value = (t.get("spend_type_guess") or "").strip().lower()
+    return value if value in ("business", "personal") else "untagged"
+
+
 def _dedupe_recurring(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Collapses recurring transactions down to one row per distinct
     vendor+amount so a subscription/SIP that matched multiple months in the
@@ -126,6 +138,19 @@ def generate_monthly_report(reconciled_data: Dict[str, Any]) -> Dict[str, Any]:
             maturity/capital gains proceeds). Kept separate from total_spent
             so investment profit or a salary credit never inflates "how much
             you spent",
+          business_total/personal_total/untagged_total (float) — total_spent
+            split by each transaction's spend_type_guess (freelancers and
+            small business owners routinely mix both through one inbox, so
+            this is a per-transaction split of the same total_spent figure,
+            not a second total). untagged_total covers transactions whose
+            spend_type_guess couldn't be determined — never silently
+            dropped from the split. business_category_breakdown/
+            personal_category_breakdown mirror category_breakdown but
+            scoped to each side (untagged transactions still count in the
+            combined category_breakdown, just not in either scoped one).
+            business_income_total/personal_income_total/
+            untagged_income_total are the same split applied to
+            total_income instead of total_spent,
           subscriptions (list of {vendor, amount, category} — recurring,
             non-investment, non-inflow transactions, deduped to one row per
             vendor),
@@ -189,6 +214,33 @@ def generate_monthly_report(reconciled_data: Dict[str, Any]) -> Dict[str, Any]:
     for t in inflow_transactions:
         cat = t.get("category") or "Uncategorized"
         income_breakdown[cat] = income_breakdown.get(cat, 0) + float(t.get("amount") or 0)
+
+    # Business vs personal split, per the pitch's "surface both, clearly
+    # tagged, rather than pretending they're separate" — a per-transaction
+    # split of the same outflow/inflow totals above, not a second set of
+    # numbers. business_total + personal_total + untagged_total always
+    # equals total_spent (same for the *_income_total trio vs total_income).
+    business_total = sum(float(t.get("amount") or 0) for t in outflow_transactions if _spend_type(t) == "business")
+    personal_total = sum(float(t.get("amount") or 0) for t in outflow_transactions if _spend_type(t) == "personal")
+    untagged_total = sum(float(t.get("amount") or 0) for t in outflow_transactions if _spend_type(t) == "untagged")
+
+    business_category_breakdown: Dict[str, float] = {}
+    personal_category_breakdown: Dict[str, float] = {}
+    for t in outflow_transactions:
+        cat = t.get("category") or "Uncategorized"
+        amount = float(t.get("amount") or 0)
+        spend_type = _spend_type(t)
+        if spend_type == "business":
+            business_category_breakdown[cat] = business_category_breakdown.get(cat, 0) + amount
+        elif spend_type == "personal":
+            personal_category_breakdown[cat] = personal_category_breakdown.get(cat, 0) + amount
+        # untagged transactions still count in total_spent/category_breakdown
+        # above - they just don't split into either business or personal
+        # breakdown, since we genuinely don't know which one they are.
+
+    business_income_total = sum(float(t.get("amount") or 0) for t in inflow_transactions if _spend_type(t) == "business")
+    personal_income_total = sum(float(t.get("amount") or 0) for t in inflow_transactions if _spend_type(t) == "personal")
+    untagged_income_total = sum(float(t.get("amount") or 0) for t in inflow_transactions if _spend_type(t) == "untagged")
 
     recurring_count = sum(1 for t in outflow_transactions if t.get("is_recurring"))
     gst_eligible_total = sum(
@@ -263,6 +315,18 @@ def generate_monthly_report(reconciled_data: Dict[str, Any]) -> Dict[str, Any]:
         for cat, amount in sorted(income_breakdown.items(), key=lambda kv: -kv[1]):
             lines.append(f"- **{cat}:** {amount:,.2f}")
 
+    if business_total or personal_total:
+        lines += ["", "## Business vs personal"]
+        lines.append(f"- **Business spend:** {business_total:,.2f}")
+        lines.append(f"- **Personal spend:** {personal_total:,.2f}")
+        if untagged_total:
+            lines.append(f"- **Untagged spend (couldn't tell which):** {untagged_total:,.2f}")
+        if business_income_total or personal_income_total:
+            lines.append(f"- **Business money in:** {business_income_total:,.2f}")
+            lines.append(f"- **Personal money in:** {personal_income_total:,.2f}")
+            if untagged_income_total:
+                lines.append(f"- **Untagged money in:** {untagged_income_total:,.2f}")
+
     if over_budget_categories:
         lines += ["", "## Over budget", *[f"- {c}" for c in over_budget_categories]]
 
@@ -273,6 +337,14 @@ def generate_monthly_report(reconciled_data: Dict[str, Any]) -> Dict[str, Any]:
         "category_vendors": category_vendors,
         "total_income": round(total_income, 2),
         "income_breakdown": income_breakdown,
+        "business_total": round(business_total, 2),
+        "personal_total": round(personal_total, 2),
+        "untagged_total": round(untagged_total, 2),
+        "business_category_breakdown": business_category_breakdown,
+        "personal_category_breakdown": personal_category_breakdown,
+        "business_income_total": round(business_income_total, 2),
+        "personal_income_total": round(personal_income_total, 2),
+        "untagged_income_total": round(untagged_income_total, 2),
         "subscriptions": subscriptions,
         "recurring_investments": recurring_investments,
         "payments_pending": payments_pending,

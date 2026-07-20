@@ -66,6 +66,13 @@ def check_duplicates_and_budget(
         with is_duplicate, duplicate_of, is_recurring bools), missing_invoices
         (list of bank_transactions with no matching invoice), budget_summary
         (dict of category -> {spent, budget, over_budget}).
+
+        Every input field not touched by this function — including
+        payment_status_guess and spend_type_guess from extract_invoice_data
+        — passes straight through into the enriched transactions unchanged,
+        since enrichment is a shallow per-transaction dict copy, not a
+        rebuild. generate_monthly_report is what actually reads
+        spend_type_guess to split totals by business vs personal.
     """
     enriched = [dict(t) for t in transactions]
 

@@ -12,6 +12,7 @@ import pytest
 
 from tools.discovery_tools import (
     EXPECTED_CSV_COLUMNS,
+    EXTRACTION_SCHEMA,
     _default_query,
     _extract_email_body,
     _extract_pdf_text,
@@ -111,6 +112,18 @@ def test_extract_invoice_data_parses_structured_output(monkeypatch):
     assert result["status"] == "ok"
     assert result["count"] == 1
     assert result["transactions"][0]["vendor"] == "Amazon"
+
+
+def test_extraction_schema_includes_spend_type_guess():
+    # Freelancers/small business owners mix business and personal spend in
+    # one inbox - the schema must expose a per-transaction business/personal
+    # tag (not required, same as category/is_recurring_guess/
+    # gst_eligible_guess, since it's a guess Gemini may leave out on a
+    # genuinely ambiguous item).
+    props = EXTRACTION_SCHEMA["items"]["properties"]
+    assert "spend_type_guess" in props
+    assert set(props["spend_type_guess"]["enum"]) == {"business", "personal", "unknown"}
+    assert "spend_type_guess" not in EXTRACTION_SCHEMA["items"]["required"]
 
 
 def test_extract_invoice_data_missing_api_key_fails_gracefully(monkeypatch):

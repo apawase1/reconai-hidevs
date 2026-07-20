@@ -476,99 +476,103 @@ _MOCK_RECONCILED_DATA = {
     "status": "ok",
     "transactions": [
         {"source_id": "19f2208354f379c9:hdfc_interest_jul01", "vendor": "HDFC Bank", "amount": 2124.0,
-         "date": "2026-07-01", "category": "Interest Income", "is_recurring_guess": True,
+         "date": "2026-07-01", "category": "Interest Income", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "18d9a41c220b5f3a:groceries_jul", "vendor": "BigBasket", "amount": 3200.0,
-         "date": "2026-07-08", "category": "Groceries", "is_recurring_guess": False,
+         "date": "2026-07-08", "category": "Groceries", "spend_type_guess": "personal", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "18d9a41c220b5f3b:amazon_jul", "vendor": "Amazon", "amount": 2450.0,
-         "date": "2026-07-12", "category": "Shopping", "is_recurring_guess": False,
+         "date": "2026-07-12", "category": "Shopping", "spend_type_guess": "personal", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "1a2b3c4d5e6f7001:anthropic_jul", "vendor": "Anthropic PBC", "amount": 1899.0,
-         "date": "2026-07-05", "category": "SaaS", "is_recurring_guess": True,
+         "date": "2026-07-05", "category": "SaaS", "spend_type_guess": "business", "is_recurring_guess": True,
          "gst_eligible_guess": True, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "1a2b3c4d5e6f7002:gcp_jul", "vendor": "Google Cloud Platform", "amount": 1100.0,
-         "date": "2026-07-18", "category": "SaaS", "is_recurring_guess": True,
+         "date": "2026-07-18", "category": "SaaS", "spend_type_guess": "business", "is_recurring_guess": True,
          "gst_eligible_guess": True, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
+        {"source_id": "1a2b3c4d5e6f7003:client_payment_jul", "vendor": "Razorpay - WebDesign Co (client)", "amount": 45000.0,
+         "date": "2026-07-09", "category": "Client Payment", "spend_type_guess": "business", "is_recurring_guess": False,
+         "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
+         "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "1b3c5d7e9f102030:sip_jul", "vendor": "SIP Investment", "amount": 39000.0,
-         "date": "2026-07-16", "category": "Investment", "is_recurring_guess": True,
+         "date": "2026-07-16", "category": "Investment", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "1b3c5d7e9f102031:nach_sip_jul", "vendor": "NACH Mutual Fund SIP", "amount": 8500.0,
-         "date": "2026-07-05", "category": "Investment", "is_recurring_guess": True,
+         "date": "2026-07-05", "category": "Investment", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "1b3c5d7e9f102032:rd_jul", "vendor": "Post Office RD", "amount": 5000.0,
-         "date": "2026-07-05", "category": "Recurring Deposit", "is_recurring_guess": True,
+         "date": "2026-07-05", "category": "Recurring Deposit", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "1b3c5d7e9f102033:gold_jul", "vendor": "SafeGold", "amount": 2500.0,
-         "date": "2026-07-10", "category": "Gold", "is_recurring_guess": True,
+         "date": "2026-07-10", "category": "Gold", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "1b3c5d7e9f102034:zerodha_jul", "vendor": "Zerodha", "amount": 12000.0,
-         "date": "2026-07-11", "category": "Stock", "is_recurring_guess": False,
+         "date": "2026-07-11", "category": "Stock", "spend_type_guess": "personal", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "1b3c5d7e9f102035:mf_redemption_jul", "vendor": "NJ India Online", "amount": 18500.0,
-         "date": "2026-07-13", "category": "Investment Gains", "is_recurring_guess": False,
+         "date": "2026-07-13", "category": "Investment Gains", "spend_type_guess": "personal", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "1c4d5e6f70819202:framekro_confirm", "vendor": "Frame Kro", "amount": 499.0,
-         "date": "2026-07-16", "category": "Shopping", "is_recurring_guess": False,
+         "date": "2026-07-16", "category": "Shopping", "spend_type_guess": "personal", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "1c4d5e6f70819203:framekro_receipt", "vendor": "Frame Kro", "amount": 499.0,
-         "date": "2026-07-17", "category": "Shopping", "is_recurring_guess": False,
+         "date": "2026-07-17", "category": "Shopping", "spend_type_guess": "personal", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": True, "duplicate_of": 7, "is_recurring": False},
         {"source_id": "1d5e6f7081920a1b:bescom_bill_jul", "vendor": "BESCOM", "amount": 1240.0,
-         "date": "2026-07-16", "category": "Utilities", "is_recurring_guess": True,
+         "date": "2026-07-16", "category": "Utilities", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "pending", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "1e6f708192a3b4c5:zomato_jul18", "vendor": "Sri Krishna Sagar", "amount": 239.0,
-         "date": "2026-07-19", "category": "Food", "is_recurring_guess": False,
+         "date": "2026-07-19", "category": "Food", "spend_type_guess": "personal", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "1e6f708192a3b4c6:swiggy_jul18", "vendor": "Indira Priyadarshini", "amount": 760.0,
-         "date": "2026-07-18", "category": "Food", "is_recurring_guess": False,
+         "date": "2026-07-18", "category": "Food", "spend_type_guess": "personal", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "1f708192a3b4c5d6:upi_1", "vendor": "q635075112@ybl", "amount": 80.0,
-         "date": "2026-07-18", "category": "Transfer", "is_recurring_guess": False,
+         "date": "2026-07-18", "category": "Transfer", "spend_type_guess": "unknown", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "1f708192a3b4c5d7:upi_2", "vendor": "q958687424@ybl", "amount": 80.0,
-         "date": "2026-07-16", "category": "Transfer", "is_recurring_guess": False,
+         "date": "2026-07-16", "category": "Transfer", "spend_type_guess": "unknown", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "208192a3b4c5d6e7:tata_dividend", "vendor": "Tata Power Company Ltd", "amount": 705.0,
-         "date": "2026-07-14", "category": "Income (Dividends)", "is_recurring_guess": False,
+         "date": "2026-07-14", "category": "Income (Dividends)", "spend_type_guess": "personal", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "21a2b3c4d5e6f701:netflix_jul", "vendor": "Netflix", "amount": 649.0,
-         "date": "2026-07-03", "category": "Subscriptions", "is_recurring_guess": True,
+         "date": "2026-07-03", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "21a2b3c4d5e6f702:hotstar_jul", "vendor": "Disney+ Hotstar", "amount": 299.0,
-         "date": "2026-07-04", "category": "Subscriptions", "is_recurring_guess": True,
+         "date": "2026-07-04", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "21a2b3c4d5e6f703:prime_jul", "vendor": "Amazon Prime", "amount": 299.0,
-         "date": "2026-07-06", "category": "Subscriptions", "is_recurring_guess": True,
+         "date": "2026-07-06", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "21a2b3c4d5e6f704:spotify_jul", "vendor": "Spotify", "amount": 119.0,
-         "date": "2026-07-07", "category": "Subscriptions", "is_recurring_guess": True,
+         "date": "2026-07-07", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
         {"source_id": "22a2b3c4d5e6f701:rent_jul", "vendor": "Landlord - Dom's Residence", "amount": 20000.0,
-         "date": "2026-07-02", "category": "Rent", "is_recurring_guess": True,
+         "date": "2026-07-02", "category": "Rent", "spend_type_guess": "personal", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
     ],
@@ -895,6 +899,11 @@ if reconciled:
         category_vendors = report["category_vendors"]
         total_income = report.get("total_income", 0)
         income_breakdown = report.get("income_breakdown", {})
+        business_total = report.get("business_total", 0)
+        personal_total = report.get("personal_total", 0)
+        untagged_total = report.get("untagged_total", 0)
+        business_income_total = report.get("business_income_total", 0)
+        personal_income_total = report.get("personal_income_total", 0)
         subscriptions = report["subscriptions"]
         recurring_investments = report["recurring_investments"]
         payments_pending = report["payments_pending"]
@@ -1043,6 +1052,7 @@ if reconciled:
                 # so a transaction's category showing up there means it's an
                 # inflow, not a spend.
                 is_inflow = category in income_breakdown
+                spend_type = t.get("spend_type_guess")
                 if is_inflow:
                     amount_color = TEAL
                 elif is_dup or is_pending:
@@ -1056,6 +1066,8 @@ if reconciled:
                     tags += f'<span class="tag" style="background:{AMBER}22; color:{AMBER};">Pending</span>'
                 if is_inflow:
                     tags += f'<span class="tag" style="background:{TEAL}22; color:{TEAL};">Money in</span>'
+                if spend_type == "business":
+                    tags += '<span class="tag" style="background:#F472B622; color:#F472B6;">Business</span>'
                 if is_rec:
                     tags += f'<span class="tag" style="background:{PURPLE}22; color:{PURPLE};">Recurring</span>'
                 sign = "+" if is_inflow else "-"
@@ -1149,6 +1161,42 @@ if reconciled:
                         <span>{cat}</span>
                         <span style="color:{TEAL};">+{amount:,.2f}</span>
                     </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # --- business vs personal split: freelancers and small business
+        # owners routinely run both through one inbox/account, so surface
+        # both clearly tagged rather than pretending the account is purely
+        # one or the other. ---
+        if business_total or personal_total or untagged_total:
+            st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+            st.markdown('<div class="panel">', unsafe_allow_html=True)
+            st.markdown('<div class="panel-title">Business vs personal</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<p style="font-size:12px; color:{TEXT_MUTED}; margin:-8px 0 10px 0;">'
+                f'Same total_spent above, split by what each transaction looks like it was for.</p>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f"""
+                <div class="missing-row"><span style="color:{PURPLE}; font-weight:600;">Business spend</span><span style="color:{PURPLE};">{business_total:,.2f}</span></div>
+                <div class="missing-row"><span style="color:{TEAL}; font-weight:600;">Personal spend</span><span style="color:{TEAL};">{personal_total:,.2f}</span></div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if untagged_total:
+                st.markdown(
+                    f'<div class="missing-row"><span style="color:{TEXT_MUTED};">Untagged (couldn\'t tell which)</span>'
+                    f'<span style="color:{TEXT_MUTED};">{untagged_total:,.2f}</span></div>',
+                    unsafe_allow_html=True,
+                )
+            if business_income_total or personal_income_total:
+                st.markdown(
+                    f"""
+                    <div class="missing-row"><span style="color:{PURPLE}; font-weight:600;">Business money in</span><span style="color:{PURPLE};">+{business_income_total:,.2f}</span></div>
+                    <div class="missing-row"><span style="color:{TEAL}; font-weight:600;">Personal money in</span><span style="color:{TEAL};">+{personal_income_total:,.2f}</span></div>
                     """,
                     unsafe_allow_html=True,
                 )
