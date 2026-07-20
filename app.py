@@ -687,6 +687,29 @@ if not st.session_state.gmail_authed:
 # --- end sign-in gate ------------------------------------------------------
 
 
+def _reset_session_for_new_account() -> None:
+    """Wipes every trace of the previous signed-in account's data before
+    showing the sign-in screen for a new one.
+
+    Bug this fixes: "Sign out / switch account" used to only clear the
+    OAuth token (gmail_authed/gmail_email) — it left st.session_state.
+    messages (the whole chat history) and adk_session_id (which points at
+    an ADK session still holding the previous run's reconciled_data) fully
+    intact. So a second person signing in on the same browser/machine
+    would see the first person's chat transcript and dashboard numbers
+    the instant they finished signing in, before ever running anything
+    themselves. Clearing every session_state key except the cosmetic
+    theme preference (and letting the sign-in gate's own init code
+    recreate gmail_authed/gmail_email as fresh defaults, and the session-id
+    block below recreate a brand-new empty ADK session) guarantees a
+    completely blank slate for the next account, not just a cleared login.
+    """
+    keep = {"theme"}
+    for key in list(st.session_state.keys()):
+        if key not in keep:
+            del st.session_state[key]
+
+
 @st.cache_resource
 def get_runner():
     from google.adk.runners import InMemoryRunner
@@ -700,8 +723,7 @@ with st.sidebar:
     st.caption(f"✅ Signed in as **{st.session_state.gmail_email or 'your Google account'}**")
     if st.button("Sign out / switch account", use_container_width=True):
         clear_cached_credentials()
-        st.session_state.gmail_authed = False
-        st.session_state.gmail_email = None
+        _reset_session_for_new_account()
         st.rerun()
     st.divider()
 
@@ -715,8 +737,14 @@ with st.sidebar:
         value="",
         placeholder='{"Food": 8000, "Subscriptions": 2000}',
         height=80,
+        key="budget_json_input",  # explicit key so _reset_session_for_new_account
+                                   # is guaranteed to clear it on account switch
     )
-    uploaded_csv = st.file_uploader("Bank statement CSV (optional)", type=["csv"])
+    uploaded_csv = st.file_uploader(
+        "Bank statement CSV (optional)",
+        type=["csv"],
+        key="uploaded_csv_input",  # same reasoning as budget_json_input above
+    )
 
     bank_csv_path = None
     if uploaded_csv is not None:
