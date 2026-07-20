@@ -135,3 +135,77 @@ def test_recurring_dedupe_collapses_same_vendor_amount():
     r = generate_monthly_report(data)
     assert len(r["subscriptions"]) == 1
     assert r["subscriptions"][0]["amount"] == 649
+
+
+def test_new_investment_types_recognized_as_recurring_investments():
+    # SIP/mutual fund were already covered - RD, Gold, Stock/Equity, and FD
+    # should land in recurring_investments too, not subscriptions.
+    data = {
+        "transactions": [
+            _txn(vendor="Post Office", amount=5000, category="Recurring Deposit", is_recurring=True),
+            _txn(vendor="SafeGold", amount=2000, category="Gold", is_recurring=True),
+            _txn(vendor="Zerodha", amount=10000, category="Stock", is_recurring=True),
+            _txn(vendor="Groww", amount=15000, category="Equity", is_recurring=True),
+            _txn(vendor="SBI", amount=25000, category="Fixed Deposit", is_recurring=True),
+            _txn(vendor="Netflix", amount=649, category="Subscriptions", is_recurring=True),
+        ],
+        "missing_invoices": [],
+        "budget_summary": {},
+    }
+    r = generate_monthly_report(data)
+    investment_vendors = {s["vendor"] for s in r["recurring_investments"]}
+    assert investment_vendors == {"Post Office", "SafeGold", "Zerodha", "Groww", "SBI"}
+    assert [s["vendor"] for s in r["subscriptions"]] == ["Netflix"]
+
+
+def test_landlord_not_falsely_matched_as_investment():
+    # Guards the "bare rd/fd" false-positive risk this hint list is designed
+    # to avoid: "Landlord" contains the substring "rd" but must never be
+    # treated as an investment category.
+    data = {
+        "transactions": [
+            _txn(vendor="Landlord", amount=20000, category="Rent", is_recurring=True),
+        ],
+        "missing_invoices": [],
+        "budget_summary": {},
+    }
+    r = generate_monthly_report(data)
+    assert r["recurring_investments"] == []
+
+
+def test_investment_gains_excluded_from_total_spent_and_reported_as_income():
+    # A mutual fund redemption/profit payout is money coming IN, not spend -
+    # it must not inflate total_spent, and should show up in total_income/
+    # income_breakdown instead.
+    data = {
+        "transactions": [
+            _txn(vendor="NJ India Online", amount=50000, category="Investment Gains", is_recurring=False),
+            _txn(vendor="Groceries Store", amount=2000, category="Groceries", is_recurring=False),
+        ],
+        "missing_invoices": [],
+        "budget_summary": {},
+    }
+    r = generate_monthly_report(data)
+    assert r["total_spent"] == 2000
+    assert "Investment Gains" not in r["category_breakdown"]
+    assert r["total_income"] == 50000
+    assert r["income_breakdown"] == {"Investment Gains": 50000}
+
+
+def test_salary_income_vs_business_payroll_direction():
+    # "Salary Income" (credited to an individual) is income; "Payroll" (paid
+    # out by a small business to staff) is an expense - the two must never
+    # collide even though both involve the word "salary" conceptually.
+    data = {
+        "transactions": [
+            _txn(vendor="Employer Inc", amount=80000, category="Salary Income"),
+            _txn(vendor="Staff Member A", amount=30000, category="Payroll"),
+        ],
+        "missing_invoices": [],
+        "budget_summary": {},
+    }
+    r = generate_monthly_report(data)
+    assert r["total_income"] == 80000
+    assert r["total_spent"] == 30000
+    assert r["category_breakdown"] == {"Payroll": 30000}
+    assert r["income_breakdown"] == {"Salary Income": 80000}

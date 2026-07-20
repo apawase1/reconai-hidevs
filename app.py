@@ -503,6 +503,22 @@ _MOCK_RECONCILED_DATA = {
          "date": "2026-07-05", "category": "Investment", "is_recurring_guess": True,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
          "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
+        {"source_id": "1b3c5d7e9f102032:rd_jul", "vendor": "Post Office RD", "amount": 5000.0,
+         "date": "2026-07-05", "category": "Recurring Deposit", "is_recurring_guess": True,
+         "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
+         "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
+        {"source_id": "1b3c5d7e9f102033:gold_jul", "vendor": "SafeGold", "amount": 2500.0,
+         "date": "2026-07-10", "category": "Gold", "is_recurring_guess": True,
+         "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
+         "is_duplicate": False, "duplicate_of": None, "is_recurring": True},
+        {"source_id": "1b3c5d7e9f102034:zerodha_jul", "vendor": "Zerodha", "amount": 12000.0,
+         "date": "2026-07-11", "category": "Stock", "is_recurring_guess": False,
+         "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
+         "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
+        {"source_id": "1b3c5d7e9f102035:mf_redemption_jul", "vendor": "NJ India Online", "amount": 18500.0,
+         "date": "2026-07-13", "category": "Investment Gains", "is_recurring_guess": False,
+         "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
+         "is_duplicate": False, "duplicate_of": None, "is_recurring": False},
         {"source_id": "1c4d5e6f70819202:framekro_confirm", "vendor": "Frame Kro", "amount": 499.0,
          "date": "2026-07-16", "category": "Shopping", "is_recurring_guess": False,
          "gst_eligible_guess": False, "payment_status_guess": "paid", "status": "ok",
@@ -877,6 +893,8 @@ if reconciled:
         total = report["total_spent"]
         category_totals = report["category_breakdown"]
         category_vendors = report["category_vendors"]
+        total_income = report.get("total_income", 0)
+        income_breakdown = report.get("income_breakdown", {})
         subscriptions = report["subscriptions"]
         recurring_investments = report["recurring_investments"]
         payments_pending = report["payments_pending"]
@@ -1019,14 +1037,28 @@ if reconciled:
                 is_dup = t.get("is_duplicate")
                 is_rec = t.get("is_recurring")
                 is_pending = t.get("payment_status_guess") == "pending"
-                amount_color = CORAL if (is_dup or is_pending) else TEXT_PRIMARY
+                # Money coming IN (salary/interest/dividends/investment
+                # gains) vs. money going OUT — same categories
+                # generate_monthly_report already split into income_breakdown,
+                # so a transaction's category showing up there means it's an
+                # inflow, not a spend.
+                is_inflow = category in income_breakdown
+                if is_inflow:
+                    amount_color = TEAL
+                elif is_dup or is_pending:
+                    amount_color = CORAL
+                else:
+                    amount_color = TEXT_PRIMARY
                 tags = ""
                 if is_dup:
                     tags += f'<span class="tag" style="background:{CORAL}22; color:{CORAL};">Duplicate</span>'
                 if is_pending:
                     tags += f'<span class="tag" style="background:{AMBER}22; color:{AMBER};">Pending</span>'
+                if is_inflow:
+                    tags += f'<span class="tag" style="background:{TEAL}22; color:{TEAL};">Money in</span>'
                 if is_rec:
                     tags += f'<span class="tag" style="background:{PURPLE}22; color:{PURPLE};">Recurring</span>'
+                sign = "+" if is_inflow else "-"
                 st.markdown(
                     f"""
                     <div class="txn-row">
@@ -1037,7 +1069,7 @@ if reconciled:
                                 <p class="txn-meta">{category} &middot; {t.get("date", "")}</p>
                             </div>
                         </div>
-                        <div class="txn-amount" style="color:{amount_color};">-{amount:,.2f}</div>
+                        <div class="txn-amount" style="color:{amount_color};">{sign}{amount:,.2f}</div>
                     </div>
                     """,
                     unsafe_allow_html=True,
@@ -1086,6 +1118,36 @@ if reconciled:
                     <div class="missing-row">
                         <span>{p['vendor']} &middot; {p.get('category', '')}</span>
                         <span style="color:{AMBER};">{p['amount']:,.2f}</span>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        # --- money in this period: salary/interest/dividends/investment
+        # gains — never counted in total_spent above, shown as its own
+        # clearly-labeled figure so investment profit or a salary credit
+        # never reads as "spend". ---
+        if income_breakdown:
+            st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
+            st.markdown('<div class="panel">', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="panel-title">Money in this period '
+                f'<span class="tag" style="background:{TEAL}22; color:{TEAL};">{total_income:,.2f}</span></div>',
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                f'<p style="font-size:12px; color:{TEXT_MUTED}; margin:-8px 0 10px 0;">'
+                f'Salary, interest, dividends, and investment gains/redemption/maturity payouts — '
+                f'not spend, not included in total spent above.</p>',
+                unsafe_allow_html=True,
+            )
+            for cat, amount in sorted(income_breakdown.items(), key=lambda kv: -kv[1]):
+                st.markdown(
+                    f"""
+                    <div class="missing-row">
+                        <span>{cat}</span>
+                        <span style="color:{TEAL};">+{amount:,.2f}</span>
                     </div>
                     """,
                     unsafe_allow_html=True,
