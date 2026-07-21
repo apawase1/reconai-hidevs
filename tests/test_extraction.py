@@ -291,6 +291,25 @@ def test_fetch_invoice_emails_no_exclusions_fetches_everything(monkeypatch):
     assert result["skipped_already_processed"] == 0
 
 
+def test_fetch_invoice_emails_concurrent_fetch_preserves_order_and_count(monkeypatch):
+    # fetch_invoice_emails fetches per-message detail concurrently via a
+    # thread pool (see DISCOVERY_FETCH_WORKERS) instead of one at a time -
+    # this checks that concurrency doesn't drop messages or scramble the
+    # result order despite threads finishing in whatever order they finish.
+    ids = [f"msg-{i}" for i in range(6)]
+    details = {mid: _fake_email_detail(f"Invoice {mid}") for mid in ids}
+    messages_resource = _FakeMessagesResource(ids, details)
+    fake_service = _FakeGmailService(messages_resource)
+
+    monkeypatch.setattr("tools.discovery_tools.get_service", lambda *a, **k: fake_service)
+
+    result = fetch_invoice_emails(query="invoice")
+
+    assert result["status"] == "ok"
+    assert result["count"] == 6
+    assert [e["id"] for e in result["emails"]] == ids
+
+
 def test_fetch_invoice_emails_defaults_to_date_scoped_query(monkeypatch):
     captured = {}
 

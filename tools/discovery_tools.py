@@ -24,6 +24,7 @@ import io
 import json
 import os
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -37,6 +38,17 @@ from tools.security import sanitize_csv_cell
 MODEL = os.getenv("EXTRACTION_MODEL", "gemini-3.5-flash")
 
 DEFAULT_KEYWORDS = "invoice OR receipt OR bill OR payment"
+
+# Per-message Gmail detail/attachment fetches in fetch_invoice_emails are
+# I/O-bound (network round trips), not CPU-bound, and were previously done
+# one at a time in a plain for-loop — the single biggest reason Discovery
+# feels slow with more than a handful of matched emails (25 sequential
+# ~request each, plus another sequential request per PDF attachment, adds
+# up fast; the actual Gemini extraction call afterward is already a single
+# batched call, not the bottleneck). Fetched concurrently instead, capped
+# at a modest worker count to stay a good API citizen rather than firing
+# 25+ simultaneous requests at Gmail.
+DISCOVERY_FETCH_WORKERS = int(os.getenv("RECONAI_DISCOVERY_WORKERS", "8"))
 
 
 def _default_query() -> str:
@@ -246,6 +258,77 @@ def unlock_pdf_attachment(message_id: str, attachment_id: str, password: str) ->
     return result
 
 
+def _fetch_and_process_message(message_id: str):
+    """Fetches one Gmail message's full detail, walks its PDF attachments,
+    and extracts everything fetch_invoice_emails needs for that message —
+    pulled out into its own function so fetch_invoice_emails can run it
+    concurrently across messages via a thread pool instead of one message
+    at a time.
+
+    Builds its OWN service instance (get_service("gmail", "v1")) rather
+    than reusing one shared across threads: googleapiclient's underlying
+    httplib2 client isn't guaranteed thread-safe for concurrent requests,
+    and build() itself is a fast local call with no network round trip
+    (confirmed: ~1ms), so this is cheap insurance, not a real cost.
+
+    Returns a (email_dict_or_None, locked_attachments_list) tuple. Never
+    raises HttpError itself — a None email means "skip this one", mirroring
+    the same behavior the old sequential loop had for a failed detail fetch.
+    """
+    try:
+        service = get_service("gmail", "v1")
+        msg_data = service.users().messages().get(
+            userId="me", id=message_id, format="full"
+        ).execute()
+    except HttpError:
+        return None, []
+
+    payload = msg_data.get("payload", {})
+    headers = payload.get("headers", [])
+    subject = next((h["value"] for h in headers if h["name"] == "Subject"), "(no subject)")
+    sender = next((h["value"] for h in headers if h["name"] == "From"), "(unknown sender)")
+    date = next((h["value"] for h in headers if h["name"] == "Date"), "")
+    body_text = _extract_email_body(payload)
+
+    attachments = []
+    locked_attachments = []
+    for att in _find_pdf_attachments(payload):
+        try:
+            raw_bytes = _fetch_attachment_bytes(service, message_id, att["attachment_id"])
+            pdf_result = _extract_pdf_text(raw_bytes)
+        except HttpError as e:
+            pdf_result = {"status": "failed", "text": "", "error": str(e)}
+
+        attachment_entry = {
+            "filename": att["filename"],
+            "attachment_id": att["attachment_id"],
+            "status": pdf_result["status"],
+        }
+        if pdf_result["status"] == "ok":
+            attachment_entry["text"] = pdf_result["text"][:8000]
+        else:
+            attachment_entry["error"] = pdf_result.get("error", "")
+        attachments.append(attachment_entry)
+
+        if pdf_result["status"] == "password_required":
+            locked_attachments.append({
+                "message_id": message_id,
+                "attachment_id": att["attachment_id"],
+                "filename": att["filename"],
+                "subject": subject,
+            })
+
+    email = {
+        "id": message_id,
+        "subject": subject,
+        "sender": sender,
+        "date": date,
+        "body_text": body_text[:8000],  # cap per-item size, mirrors input_filter's cap
+        "attachments": attachments,
+    }
+    return email, locked_attachments
+
+
 def fetch_invoice_emails(
     query: Optional[str] = None,
     max_results: int = 25,
@@ -304,58 +387,28 @@ def fetch_invoice_emails(
         skipped_already_processed = sum(1 for m in messages if m["id"] in exclude_ids)
         messages = [m for m in messages if m["id"] not in exclude_ids]
 
-        emails = []
+        emails_by_id: Dict[str, Dict[str, Any]] = {}
         locked_attachments = []
         skipped = 0
-        for msg in messages:
-            try:
-                msg_data = service.users().messages().get(
-                    userId="me", id=msg["id"], format="full"
-                ).execute()
-                payload = msg_data.get("payload", {})
-                headers = payload.get("headers", [])
-                subject = next((h["value"] for h in headers if h["name"] == "Subject"), "(no subject)")
-                sender = next((h["value"] for h in headers if h["name"] == "From"), "(unknown sender)")
-                date = next((h["value"] for h in headers if h["name"] == "Date"), "")
-                body_text = _extract_email_body(payload)
 
-                attachments = []
-                for att in _find_pdf_attachments(payload):
-                    try:
-                        raw_bytes = _fetch_attachment_bytes(service, msg["id"], att["attachment_id"])
-                        pdf_result = _extract_pdf_text(raw_bytes)
-                    except HttpError as e:
-                        pdf_result = {"status": "failed", "text": "", "error": str(e)}
-
-                    attachment_entry = {
-                        "filename": att["filename"],
-                        "attachment_id": att["attachment_id"],
-                        "status": pdf_result["status"],
-                    }
-                    if pdf_result["status"] == "ok":
-                        attachment_entry["text"] = pdf_result["text"][:8000]
+        if messages:
+            with ThreadPoolExecutor(max_workers=min(DISCOVERY_FETCH_WORKERS, len(messages))) as pool:
+                future_to_id = {pool.submit(_fetch_and_process_message, m["id"]): m["id"] for m in messages}
+                for future in as_completed(future_to_id):
+                    msg_id = future_to_id[future]
+                    email, locked = future.result()
+                    if email is None:
+                        skipped += 1
                     else:
-                        attachment_entry["error"] = pdf_result.get("error", "")
-                    attachments.append(attachment_entry)
+                        emails_by_id[msg_id] = email
+                        locked_attachments.extend(locked)
 
-                    if pdf_result["status"] == "password_required":
-                        locked_attachments.append({
-                            "message_id": msg["id"],
-                            "attachment_id": att["attachment_id"],
-                            "filename": att["filename"],
-                            "subject": subject,
-                        })
-
-                emails.append({
-                    "id": msg["id"],
-                    "subject": subject,
-                    "sender": sender,
-                    "date": date,
-                    "body_text": body_text[:8000],  # cap per-item size, mirrors input_filter's cap
-                    "attachments": attachments,
-                })
-            except HttpError:
-                skipped += 1
+        # Reassemble in the original Gmail list order, even though the
+        # fetches above completed in whatever order the thread pool
+        # finished them — downstream logic doesn't require Gmail's own
+        # ordering, but a stable, predictable order is still nicer than
+        # "whichever request happened to come back first".
+        emails = [emails_by_id[m["id"]] for m in messages if m["id"] in emails_by_id]
 
         status = "ok" if skipped == 0 else "partial"
         return {
