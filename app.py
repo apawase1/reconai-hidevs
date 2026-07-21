@@ -29,7 +29,6 @@ from tools.google_auth import (
     clear_cached_credentials,
     get_credentials,
     get_signed_in_email,
-    load_cached_credentials,
 )
 from tools.reporting_tools import generate_monthly_report
 
@@ -178,6 +177,34 @@ def _inject_theme():
         [data-testid="stFileUploaderDropzone"] {{
             background: {SURFACE_ALT};
             border: 1px dashed {BORDER};
+        }}
+        [data-testid="stFileUploaderDropzone"] button {{
+            background: {SURFACE} !important;
+            color: {TEXT_PRIMARY} !important;
+            border: 1px solid {BORDER} !important;
+        }}
+        [data-testid="stFileUploaderDropzone"] span,
+        [data-testid="stFileUploaderDropzone"] small,
+        [data-testid="stFileUploaderDropzone"] div {{
+            color: {TEXT_MUTED} !important;
+        }}
+        /* st.chat_input is a separate Streamlit widget from st.text_input -
+        it has its own testids (stChatInput / stChatInputTextArea /
+        stChatInputSubmitButton) that the .stTextInput override above never
+        touches, so without this it keeps Streamlit's own built-in styling
+        regardless of this app's light/dark toggle - this is the "input bar
+        is dark in light mode" bug. */
+        [data-testid="stChatInput"] {{
+            background: {SURFACE_ALT} !important;
+            border: 1px solid {BORDER} !important;
+        }}
+        [data-testid="stChatInputTextArea"], [data-testid="stChatInput"] textarea {{
+            background: {SURFACE_ALT} !important;
+            color: {TEXT_PRIMARY} !important;
+        }}
+        [data-testid="stChatInputSubmitButton"] {{
+            background: {SURFACE_ALT} !important;
+            color: {TEAL} !important;
         }}
 
         .recon-header {{
@@ -653,20 +680,20 @@ with _theme_col:
 # right when the demo opens, not silently mid-conversation the first time
 # a Gmail tool happens to run — which is what used to happen (get_
 # credentials() was only ever called lazily, deep inside fetch_invoice_
-# emails). On every rerun we first check silently (load_cached_
-# credentials — never opens a browser) so an already-signed-in session
-# just sails through; the interactive flow only starts on an explicit
-# button click.
+# emails).
+#
+# Deliberately NOT auto-bypassing this screen even when a valid token.json
+# is already cached on disk from a previous run: a brand-new Streamlit
+# session (a new browser tab/window, or the process restarting) always
+# lands on this screen and needs an explicit "Sign in with Google" click —
+# that's the point of a login gate for a demo. Clicking it is still fast
+# when a cached token exists (get_credentials() tries load_cached_
+# credentials() first internally, so no browser popup is needed), it's
+# just never silent/automatic before the user has clicked anything.
 if "gmail_email" not in st.session_state:
     st.session_state.gmail_email = None
 if "gmail_authed" not in st.session_state:
     st.session_state.gmail_authed = False
-
-if not st.session_state.gmail_authed:
-    _cached_creds = load_cached_credentials()
-    if _cached_creds:
-        st.session_state.gmail_authed = True
-        st.session_state.gmail_email = get_signed_in_email(_cached_creds)
 
 if not st.session_state.gmail_authed:
     st.markdown(
@@ -730,6 +757,17 @@ def _reset_session_for_new_account() -> None:
             del st.session_state[key]
 
 
+def _clear_screen() -> None:
+    """Resets the chat transcript and dashboard back to blank — a fresh ADK
+    session with no reconciled_data — WITHOUT signing out. Unlike
+    _reset_session_for_new_account, this keeps gmail_authed/gmail_email
+    intact: it's for "start a new run" mid-session, not "a different person
+    is signing in now"."""
+    for key in ("messages", "adk_session_id"):
+        if key in st.session_state:
+            del st.session_state[key]
+
+
 @st.cache_resource
 def get_runner():
     from google.adk.runners import InMemoryRunner
@@ -741,10 +779,17 @@ runner = get_runner()
 # --- Sidebar: run configuration ---
 with st.sidebar:
     st.caption(f"✅ Signed in as **{st.session_state.gmail_email or 'your Google account'}**")
-    if st.button("Sign out / switch account", use_container_width=True):
-        clear_cached_credentials()
-        _reset_session_for_new_account()
-        st.rerun()
+    _clear_col, _signout_col = st.columns(2)
+    with _clear_col:
+        if st.button("Clear screen", use_container_width=True, help="Start a fresh run — keeps you signed in."):
+            _clear_screen()
+            st.rerun()
+    with _signout_col:
+        if st.button("Sign out", use_container_width=True, help="Sign out and shut down this local app."):
+            clear_cached_credentials()
+            _reset_session_for_new_account()
+            st.info("Signed out — shutting down the local app now. You can close this tab.")
+            os._exit(0)
     st.divider()
 
     st.header("Reconciliation setup")

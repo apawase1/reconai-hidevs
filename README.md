@@ -96,7 +96,7 @@ reconai/
 
 `credentials.json`, `token.json`, and `.env` are git-ignored and docker-ignored — never commit them.
 
-**Switching accounts mid-session:** the sidebar has a **"Sign out / switch account"** button — click it and the app immediately drops back to the sign-in screen, ready for a different Google account, no manual file deletion or restart needed.
+**Switching accounts:** the sidebar has separate **"Clear screen"** and **"Sign out"** buttons. "Clear screen" resets the chat and dashboard to a blank run without touching your Google sign-in — use it to start a fresh reconciliation. "Sign out" clears the cached token, wipes every trace of the current session (so no data leaks to the next person), and shuts down this local app entirely — since it's a single-user local demo tool, "signed out" means "stopped," not "showing someone else's login screen in the same running process." Restart with `streamlit run app.py` (or your usual launch command) and sign in with the other account.
 
 ## Usage
 
@@ -113,9 +113,9 @@ reconai/
 ## Switching to a different Google account
 
 1. Add the other account's email as a **Test user** in Google Cloud Console → APIs & Services → OAuth consent screen, *before* the demo — unverified apps block sign-in for anyone not on that list.
-2. In the app's sidebar, click **"Sign out / switch account"** — this drops the cached token and immediately shows the sign-in screen again, no restart or manual file juggling needed.
-3. Click **"Sign in with Google"** and pick the other account in the browser window that opens.
-4. To go back afterward, sign out again and sign back in with your own account the same way.
+2. In the app's sidebar, click **"Sign out"** — this drops the cached token, wipes the session, and shuts down the local app (no manual file juggling needed, but you do need to relaunch it).
+3. Restart the app (`streamlit run app.py`), click **"Sign in with Google"**, and pick the other account in the browser window that opens.
+4. To go back afterward, sign out and restart again, signing back in with your own account the same way.
 
 (The old manual approach — `mv token.json token_backup.json`, restart, then `mv` it back — still works if you're running outside Streamlit, e.g. scripting against the tools directly, but the in-app button is the fast path for a live demo.)
 
