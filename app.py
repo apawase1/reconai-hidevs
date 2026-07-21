@@ -217,8 +217,7 @@ def _inject_theme():
         "G" mark on the left, 4px radius. Deliberately NOT restyled with
         this app's neon palette — a Google sign-in control is supposed to
         look like Google's, not like the surrounding product. */
-        .st-key-recon_gbtn_signin button,
-        .st-key-recon_gbtn_signout button {{
+        .st-key-recon_gbtn_signin button {{
             background: #131314 !important;
             color: #E3E3E3 !important;
             border: 1px solid #8E918F !important;
@@ -236,11 +235,112 @@ def _inject_theme():
             background-position: 12px center !important;
             background-size: 18px 18px !important;
         }}
-        .st-key-recon_gbtn_signin button:hover,
-        .st-key-recon_gbtn_signout button:hover {{
+        .st-key-recon_gbtn_signin button:hover {{
             background-color: #1E1F20 !important;
             border-color: #E3E3E3 !important;
             box-shadow: none !important;
+        }}
+        /* Signed-in account control: a clickable popover (not a straight
+        sign-out button) whose trigger is styled to the same Google dark
+        button spec as the sign-in button above, just without the "G"
+        mark — its own circled-letter avatar glyph is already part of the
+        label text. */
+        .st-key-recon_account_popover_wrap button {{
+            background: #131314 !important;
+            color: #E3E3E3 !important;
+            border: 1px solid #8E918F !important;
+            border-radius: 4px !important;
+            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif !important;
+            font-weight: 500 !important;
+            font-size: 13px !important;
+            letter-spacing: 0.1px !important;
+            height: 34px !important;
+            min-height: 34px !important;
+            padding: 0 12px !important;
+            box-shadow: none !important;
+        }}
+        .st-key-recon_account_popover_wrap button:hover {{
+            background-color: #1E1F20 !important;
+            border-color: #E3E3E3 !important;
+            box-shadow: none !important;
+        }}
+        /* The popover's floating panel is rendered in a portal outside the
+        normal layout, so it needs its own background/text-color rules —
+        the .stApp-scoped rules above never reach it. */
+        [data-testid="stPopoverBody"] {{
+            background: {SURFACE} !important;
+            border: 1px solid {BORDER} !important;
+            box-shadow: {GLOW_CYAN_SOFT} !important;
+        }}
+        [data-testid="stPopoverBody"] * {{
+            color: {TEXT_PRIMARY};
+        }}
+        .st-key-recon_switch_account button, .st-key-recon_logout button {{
+            background: {SURFACE_ALT} !important;
+            border: 1px solid {BORDER} !important;
+            font-family: 'Share Tech Mono', monospace !important;
+            font-size: 13px !important;
+        }}
+        .st-key-recon_logout button {{
+            color: {CORAL} !important;
+        }}
+        .st-key-recon_switch_account button:hover {{
+            color: {TEAL} !important;
+            border-color: {BORDER_GLOW} !important;
+        }}
+        .st-key-recon_logout button:hover {{
+            border-color: {CORAL} !important;
+        }}
+
+        /* Hover-to-reveal "ⓘ" badge — used for the Sheet-ID setup steps
+        in the sidebar, a lighter-weight alternative to a click-to-open
+        expander for a short reference note. Pure CSS :hover, no JS. */
+        .recon-info-badge {{
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: {SURFACE_ALT};
+            border: 1px solid {BORDER};
+            color: {TEXT_MUTED};
+            font-size: 10px;
+            line-height: 1;
+            cursor: help;
+            margin-left: 6px;
+            vertical-align: middle;
+        }}
+        .recon-info-badge:hover {{
+            border-color: {BORDER_GLOW};
+            color: {TEAL};
+        }}
+        .recon-info-badge .recon-info-tooltip {{
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.12s ease;
+            position: absolute;
+            z-index: 999995;
+            left: 0;
+            top: 22px;
+            width: 280px;
+            background: {SURFACE};
+            border: 1px solid {BORDER_GLOW};
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 12px;
+            line-height: 1.65;
+            color: {TEXT_PRIMARY};
+            box-shadow: {GLOW_CYAN_SOFT};
+            white-space: normal;
+            text-align: left;
+            cursor: auto;
+        }}
+        .recon-info-badge:hover .recon-info-tooltip {{
+            visibility: visible;
+            opacity: 1;
         }}
         /* "Clear screen" takes the slot the Deploy button used to occupy,
         styled to sit quietly next to the Google control rather than
@@ -538,6 +638,40 @@ def _vendor_avatar(vendor: str) -> str:
     return f'<div class="txn-avatar" style="background:{color}; box-shadow: 0 0 10px {color}99;">{initial}</div>'
 
 
+# Small colored initial-letter "doodle" standing in for the signed-in
+# Google account's profile photo (which we never fetch — no extra scope,
+# no extra API call, just a deterministic color from the email like a
+# vendor avatar above). _ACCOUNT_AVATAR_COLORS deliberately isn't
+# CATEGORY_COLORS: it needs to look right against both the popover
+# trigger button (which is styled to Google's own dark spec, not this
+# app's palette) and the popover panel body.
+_ACCOUNT_AVATAR_COLORS = ["#4285F4", "#EA4335", "#FBBC05", "#34A853", "#7C4DFF", "#00ACC1"]
+
+
+def _account_avatar_html(email: str, size: int = 32) -> str:
+    initial = (email or "?").strip()[:1].upper() or "?"
+    idx = int(hashlib.md5((email or "?").encode("utf-8")).hexdigest(), 16) % len(_ACCOUNT_AVATAR_COLORS)
+    color = _ACCOUNT_AVATAR_COLORS[idx]
+    font_size = round(size * 0.46)
+    return (
+        f'<div style="width:{size}px; height:{size}px; min-width:{size}px; border-radius:50%; '
+        f'background:{color}; display:flex; align-items:center; justify-content:center; '
+        f'color:#fff; font-family:\'Roboto\',\'Helvetica Neue\',Arial,sans-serif; '
+        f'font-weight:600; font-size:{font_size}px;">{initial}</div>'
+    )
+
+
+def _account_avatar_glyph(email: str) -> str:
+    """A single-character stand-in for the avatar, for use inside a plain
+    Streamlit button label (button labels can't hold arbitrary HTML/CSS,
+    only text) — a Unicode "circled letter" reads as a small round badge
+    even as plain text."""
+    initial = (email or "?").strip()[:1].upper()
+    if "A" <= initial <= "Z":
+        return chr(0x24B6 + (ord(initial) - ord("A")))
+    return "\U0001F464"  # generic silhouette glyph if the email is unusable
+
+
 # --- Mock data for UI testing, no Gmail/Gemini/Sheets calls involved ---
 # Same shape check_duplicates_and_budget actually returns (in fact, this
 # exact dict was PRODUCED by calling check_duplicates_and_budget on a
@@ -814,23 +948,44 @@ def _do_sign_in() -> None:
 # stays put, immediately to the right of this strip.
 #
 # Rendered before the sign-in gate's st.stop() so it's present in BOTH
-# states: signed out it's a single Google sign-in button, signed in it's
-# "Clear screen" plus the Google account button that signs out.
+# states: signed out it's a single "Sign in with Google" button; signed in
+# it's "Clear screen" plus a clickable account popover (avatar + email)
+# that opens to "Switch account" (re-authenticate as someone else without
+# restarting the app) and "Log out" (the original explicit request —
+# signs out AND stops the local app) — not a bare sign-out button, since
+# those are two different actions with different consequences.
 with st.container(key="recon-topbar", horizontal=True):
     if st.session_state.gmail_authed:
         if st.button("Clear screen", key="recon_topbtn_clear", help="Start a fresh run — keeps you signed in."):
             _clear_screen()
             st.rerun()
-        _account_label = st.session_state.gmail_email or "Sign out"
-        if st.button(
-            _account_label,
-            key="recon_gbtn_signout",
-            help="Sign out of this Google account and shut down the local app.",
-        ):
-            clear_cached_credentials()
-            _reset_session_for_new_account()
-            st.info("Signed out — shutting down the local app now. You can close this tab.")
-            os._exit(0)
+        _email = st.session_state.gmail_email or "your account"
+        with st.container(key="recon_account_popover_wrap"):
+            with st.popover(f"{_account_avatar_glyph(_email)}  {_email}  ▾", help="Account menu"):
+                st.markdown(
+                    f"""
+                    <div style="display:flex; align-items:center; gap:10px; padding:2px 4px 12px;">
+                        {_account_avatar_html(_email, size=36)}
+                        <div style="overflow:hidden;">
+                            <div style="font-size:13px; font-weight:600; white-space:nowrap;
+                                        overflow:hidden; text-overflow:ellipsis; max-width:220px;">{_email}</div>
+                            <div style="font-size:11px; color:{TEXT_MUTED};">Signed in with Google</div>
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+                if st.button("🔁 Switch account", key="recon_switch_account", use_container_width=True,
+                             help="Sign out and immediately pick a different Google account — the app keeps running."):
+                    clear_cached_credentials()
+                    _reset_session_for_new_account()
+                    st.rerun()
+                if st.button("🚪 Log out", key="recon_logout", use_container_width=True,
+                             help="Sign out and shut down this local app."):
+                    clear_cached_credentials()
+                    _reset_session_for_new_account()
+                    st.info("Signed out — shutting down the local app now. You can close this tab.")
+                    os._exit(0)
     else:
         if st.button("Sign in with Google", key="recon_gbtn_signin"):
             _do_sign_in()
@@ -881,33 +1036,36 @@ with st.sidebar:
         "current dashboard to a Google Sheet below (see 'Save to Sheet' "
         "beside the dashboard) — that's a one-off overwrite, not a ledger."
     )
+    st.markdown(
+        f"""
+        <div style="font-size:14px; margin-bottom:4px; display:flex; align-items:center;">
+            Google Sheet ID <span style="color:{TEXT_MUTED}; margin-left:4px;">(optional, for 'Save to Sheet')</span>
+            <span class="recon-info-badge">i
+                <span class="recon-info-tooltip">
+                    <b>Setting up the Sheet:</b><br>
+                    1. Create a blank Sheet at <b>sheets.new</b> while signed into
+                    the <b>same Google account</b> you signed into ReconAI with.<br>
+                    2. Different account? Either switch accounts, or share the
+                    Sheet with <b>Editor</b> access to your ReconAI account.<br>
+                    3. Copy the ID from the URL — the part between
+                    <code>/d/</code> and <code>/edit</code>.<br>
+                    4. Paste just that ID below, then click
+                    <b>💾 Save to Sheet</b> after a run.<br><br>
+                    Saves overwrite a <b>Dashboard</b> tab each time —
+                    they never append. Other tabs are left untouched.
+                </span>
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     sheet_id_input = st.text_input(
-        "Google Sheet ID (optional, for 'Save to Sheet')",
+        "Google Sheet ID",
         value="",
         placeholder="Paste the ID from the Sheet's URL",
-        help="The long ID in the Sheet's URL: docs.google.com/spreadsheets/d/THIS_PART/edit",
         key="sheet_id_input",
+        label_visibility="collapsed",
     )
-    with st.expander("How to set up the Sheet"):
-        st.markdown(
-            "1. Go to [sheets.new](https://sheets.new) — this creates a blank "
-            "Sheet owned by whichever Google account you're signed into in "
-            "that browser.\n"
-            "2. Make sure it's the **same account you signed into ReconAI "
-            "with** (shown top-right). If it isn't, ReconAI won't be allowed "
-            "to write to it — either switch accounts, or use the Sheet's "
-            "**Share** button to give your ReconAI account **Editor** access.\n"
-            "3. Copy the ID out of the URL — it's the long string between "
-            "`/d/` and `/edit`:\n\n"
-            "   `docs.google.com/spreadsheets/d/`**`1a2B3c...xyz`**`/edit`\n\n"
-            "4. Paste just that ID into the box above (not the whole URL).\n"
-            "5. Run a reconciliation, then click **💾 Save to Sheet** at the "
-            "top of the page.\n\n"
-            "ReconAI writes to a tab named **Dashboard**, creating it if it "
-            "doesn't exist. Every save **overwrites** that tab with the "
-            "latest numbers — it never appends, so the tab always reflects "
-            "one run. Any other tabs in the Sheet are left untouched."
-        )
     budget_json = st.text_area(
         "Budget (optional, JSON)",
         value="",
@@ -1142,7 +1300,7 @@ if reconciled:
         if _save_clicked:
             _sheet_id = (st.session_state.get("sheet_id_input") or "").strip()
             if not _sheet_id:
-                st.toast("Paste a Google Sheet ID in the sidebar first — see 'How to set up the Sheet'.", icon="⚠️")
+                st.toast("Paste a Google Sheet ID in the sidebar first — hover the ⓘ next to it for setup steps.", icon="⚠️")
             else:
                 with st.spinner("Saving this dashboard snapshot to your Sheet..."):
                     _save_result = save_report_to_sheet(report, _sheet_id)
