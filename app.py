@@ -38,7 +38,11 @@ load_dotenv()
 
 st.set_page_config(page_title="ReconAI", page_icon="\U0001F4CA", layout="wide")
 
-# --- Color palettes: neon cyan/blue HUD (dark) and a clean light mode ---
+# --- Color palette: neon cyan/blue HUD. Dark only — there is deliberately
+# no light mode and no theme toggle. The whole visual identity (glows,
+# grid texture, neon accents) is built for a dark surface; the light
+# variant never looked like the same product and every new widget had to
+# be re-checked against two palettes. One palette, one code path. ---
 THEME_DARK = {
     "BG": "#040A14",
     "SURFACE": "#081726",
@@ -61,32 +65,7 @@ THEME_DARK = {
     "GRID_TEXTURE": True,
 }
 
-THEME_LIGHT = {
-    "BG": "#F3F6FB",
-    "SURFACE": "#FFFFFF",
-    "SURFACE_ALT": "#EEF2F8",
-    "BORDER": "rgba(15, 23, 42, 0.10)",
-    "BORDER_GLOW": "rgba(37, 99, 235, 0.45)",
-    "TEXT_PRIMARY": "#0F1B2D",
-    "TEXT_MUTED": "#64748B",
-    "TEAL": "#0891B2",
-    "PURPLE": "#4F46E5",
-    "CORAL": "#DC2626",
-    "AMBER": "#0284C7",
-    "BLUE": "#2563EB",
-    "GLOW_CYAN": "0 2px 10px rgba(37, 99, 235, 0.16)",
-    "GLOW_CYAN_SOFT": "0 1px 8px rgba(15, 23, 42, 0.07)",
-    "GLOW_RED": "0 2px 10px rgba(220, 38, 38, 0.18)",
-    "CATEGORY_COLORS": ["#0891B2", "#4F46E5", "#2563EB", "#7C3AED", "#0D9488", "#DB2777", "#0284C7"],
-    "ACCENT_RGB": "37, 99, 235",
-    "ACCENT_RGB_2": "37, 99, 235",
-    "GRID_TEXTURE": False,
-}
-
-if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
-
-_active_theme = THEME_LIGHT if st.session_state.theme == "light" else THEME_DARK
+_active_theme = THEME_DARK
 
 BG = _active_theme["BG"]
 SURFACE = _active_theme["SURFACE"]
@@ -193,9 +172,8 @@ def _inject_theme():
         /* st.chat_input is a separate Streamlit widget from st.text_input -
         it has its own testids (stChatInput / stChatInputTextArea /
         stChatInputSubmitButton) that the .stTextInput override above never
-        touches, so without this it keeps Streamlit's own built-in styling
-        regardless of this app's light/dark toggle - this is the "input bar
-        is dark in light mode" bug. */
+        touches, so without this it keeps Streamlit's own built-in default
+        styling instead of this app's palette. */
         [data-testid="stChatInput"] {{
             background: {SURFACE_ALT} !important;
             border: 1px solid {BORDER} !important;
@@ -207,6 +185,81 @@ def _inject_theme():
         [data-testid="stChatInputSubmitButton"] {{
             background: {SURFACE_ALT} !important;
             color: {TEAL} !important;
+        }}
+
+        /* --- Top-right toolbar corner -----------------------------------
+        Streamlit's own toolbar sits top-right and holds [Deploy] [⋮].
+        We hide the standalone Deploy button (deploying is still available
+        — it's already an item inside the ⋮ menu, "Deploy this app", so
+        nothing is actually lost) and float our own account/session
+        controls into that space, leaving the ⋮ menu visible to their
+        right. #recon-topbar is a plain fixed-position strip; the right
+        offset is what reserves room for the ⋮ so the two never overlap. */
+        [data-testid="stAppDeployButton"] {{
+            display: none !important;
+        }}
+        [data-testid="stToolbar"], [data-testid="stAppToolbar"] {{
+            z-index: 999992;
+        }}
+        .st-key-recon-topbar {{
+            position: fixed;
+            top: 0.5rem;
+            right: 3.4rem;   /* leaves the ⋮ menu uncovered, immediately right of us */
+            z-index: 999991;
+            width: auto !important;
+            gap: 8px !important;
+        }}
+        .st-key-recon-topbar [data-testid="stElementContainer"] {{
+            width: auto !important;
+        }}
+        /* Google's own button spec (dark variant): #131314 surface,
+        #8E918F hairline border, #E3E3E3 Roboto Medium 14px label, 20px
+        "G" mark on the left, 4px radius. Deliberately NOT restyled with
+        this app's neon palette — a Google sign-in control is supposed to
+        look like Google's, not like the surrounding product. */
+        .st-key-recon_gbtn_signin button,
+        .st-key-recon_gbtn_signout button {{
+            background: #131314 !important;
+            color: #E3E3E3 !important;
+            border: 1px solid #8E918F !important;
+            border-radius: 4px !important;
+            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif !important;
+            font-weight: 500 !important;
+            font-size: 14px !important;
+            letter-spacing: 0.15px !important;
+            height: 34px !important;
+            min-height: 34px !important;
+            padding: 0 12px 0 38px !important;
+            box-shadow: none !important;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'><path fill='%23EA4335' d='M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z'/><path fill='%234285F4' d='M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z'/><path fill='%23FBBC05' d='M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24s.92 7.54 2.56 10.78l7.97-6.19z'/><path fill='%2334A853' d='M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z'/></svg>") !important;
+            background-repeat: no-repeat !important;
+            background-position: 12px center !important;
+            background-size: 18px 18px !important;
+        }}
+        .st-key-recon_gbtn_signin button:hover,
+        .st-key-recon_gbtn_signout button:hover {{
+            background-color: #1E1F20 !important;
+            border-color: #E3E3E3 !important;
+            box-shadow: none !important;
+        }}
+        /* "Clear screen" takes the slot the Deploy button used to occupy,
+        styled to sit quietly next to the Google control rather than
+        competing with it. */
+        .st-key-recon_topbtn_clear button {{
+            background: {SURFACE_ALT} !important;
+            color: {TEXT_MUTED} !important;
+            border: 1px solid {BORDER} !important;
+            border-radius: 4px !important;
+            font-family: 'Share Tech Mono', monospace !important;
+            font-size: 13px !important;
+            height: 34px !important;
+            min-height: 34px !important;
+            padding: 0 12px !important;
+            box-shadow: none !important;
+        }}
+        .st-key-recon_topbtn_clear button:hover {{
+            color: {TEAL} !important;
+            border-color: {BORDER_GLOW} !important;
         }}
 
         .recon-header {{
@@ -650,7 +703,7 @@ if not os.getenv("GOOGLE_API_KEY"):
     st.error("GOOGLE_API_KEY not found. Check your .env file.")
     st.stop()
 
-_header_col, _theme_col = st.columns([6, 1])
+_header_col, _export_col = st.columns([5, 3])
 with _header_col:
     st.markdown(
         f"""
@@ -669,11 +722,16 @@ with _header_col:
         """,
         unsafe_allow_html=True,
     )
-with _theme_col:
-    _theme_label = "☀️ Light" if st.session_state.theme == "dark" else "\U0001F319 Dark"
-    if st.button(_theme_label, use_container_width=True, help="Switch theme"):
-        st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
-        st.rerun()
+# Reserved slot for the "Save to Sheet" / "Export PDF" export controls,
+# sitting in the header's right-hand column. Deliberately a placeholder
+# rather than the buttons themselves: Streamlit runs the script top to
+# bottom, and there is no report to export until the dashboard section
+# far below has actually computed one. Filling this placeholder from
+# there lets the buttons *render* up here beside the title while still
+# only *existing* when there's something to export — the alternative
+# (rendering them here unconditionally) would show two dead buttons on
+# every fresh session before the first run.
+_export_slot = _export_col.empty()
 
 
 # --- Gmail sign-in gate ---------------------------------------------------
@@ -697,6 +755,86 @@ if "gmail_email" not in st.session_state:
 if "gmail_authed" not in st.session_state:
     st.session_state.gmail_authed = False
 
+
+def _reset_session_for_new_account() -> None:
+    """Wipes every trace of the previous signed-in account's data before
+    showing the sign-in screen for a new one.
+
+    Bug this fixes: "Sign out / switch account" used to only clear the
+    OAuth token (gmail_authed/gmail_email) — it left st.session_state.
+    messages (the whole chat history) and adk_session_id (which points at
+    an ADK session still holding the previous run's reconciled_data) fully
+    intact. So a second person signing in on the same browser/machine
+    would see the first person's chat transcript and dashboard numbers
+    the instant they finished signing in, before ever running anything
+    themselves. Clearing every session_state key (and letting the sign-in
+    gate's own init code recreate gmail_authed/gmail_email as fresh
+    defaults, and the session-id block below recreate a brand-new empty
+    ADK session) guarantees a completely blank slate for the next
+    account, not just a cleared login.
+    """
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+
+
+def _clear_screen() -> None:
+    """Resets the chat transcript and dashboard back to blank — a fresh ADK
+    session with no reconciled_data — WITHOUT signing out. Unlike
+    _reset_session_for_new_account, this keeps gmail_authed/gmail_email
+    intact: it's for "start a new run" mid-session, not "a different person
+    is signing in now"."""
+    for key in ("messages", "adk_session_id"):
+        if key in st.session_state:
+            del st.session_state[key]
+
+
+def _do_sign_in() -> None:
+    """Shared by the corner button and the gate screen's centered button —
+    both are the same action, so neither gets its own copy of the error
+    handling."""
+    with st.spinner("Waiting for you to finish signing in in the browser window..."):
+        try:
+            creds = get_credentials()
+            st.session_state.gmail_authed = True
+            st.session_state.gmail_email = get_signed_in_email(creds)
+            st.rerun()
+        except GoogleSignInError as e:
+            st.error(f"⚠️ {e}")
+        except Exception:
+            # Anything not already translated into a friendly
+            # GoogleSignInError — never show raw library/stack trace text
+            # to the person signing in.
+            st.error("⚠️ Something went wrong while signing in. Please try again in a moment.")
+
+
+# --- Top-right toolbar strip ----------------------------------------------
+# Occupies the space Streamlit's own "Deploy" button used to sit in (that
+# button is hidden via CSS; deploying is still reachable from the ⋮ menu's
+# "Deploy this app" item, so no capability is removed). The ⋮ menu itself
+# stays put, immediately to the right of this strip.
+#
+# Rendered before the sign-in gate's st.stop() so it's present in BOTH
+# states: signed out it's a single Google sign-in button, signed in it's
+# "Clear screen" plus the Google account button that signs out.
+with st.container(key="recon-topbar", horizontal=True):
+    if st.session_state.gmail_authed:
+        if st.button("Clear screen", key="recon_topbtn_clear", help="Start a fresh run — keeps you signed in."):
+            _clear_screen()
+            st.rerun()
+        _account_label = st.session_state.gmail_email or "Sign out"
+        if st.button(
+            _account_label,
+            key="recon_gbtn_signout",
+            help="Sign out of this Google account and shut down the local app.",
+        ):
+            clear_cached_credentials()
+            _reset_session_for_new_account()
+            st.info("Signed out — shutting down the local app now. You can close this tab.")
+            os._exit(0)
+    else:
+        if st.button("Sign in with Google", key="recon_gbtn_signin"):
+            _do_sign_in()
+
 if not st.session_state.gmail_authed:
     st.markdown(
         f"""
@@ -715,59 +853,10 @@ if not st.session_state.gmail_authed:
     )
     _gate_l, _gate_c, _gate_r = st.columns([1, 1, 1])
     with _gate_c:
-        if st.button("🔐  Sign in with Google", use_container_width=True):
-            with st.spinner("Waiting for you to finish signing in in the browser window..."):
-                try:
-                    creds = get_credentials()
-                    st.session_state.gmail_authed = True
-                    st.session_state.gmail_email = get_signed_in_email(creds)
-                    st.rerun()
-                except GoogleSignInError as e:
-                    st.error(f"⚠️ {e}")
-                except Exception:
-                    # Anything not already translated into a friendly
-                    # GoogleSignInError — never show raw library/stack
-                    # trace text to the person signing in.
-                    st.error(
-                        "⚠️ Something went wrong while signing in. "
-                        "Please try again in a moment."
-                    )
+        if st.button("🔐  Sign in with Google", key="gate_signin", use_container_width=True):
+            _do_sign_in()
     st.stop()
 # --- end sign-in gate ------------------------------------------------------
-
-
-def _reset_session_for_new_account() -> None:
-    """Wipes every trace of the previous signed-in account's data before
-    showing the sign-in screen for a new one.
-
-    Bug this fixes: "Sign out / switch account" used to only clear the
-    OAuth token (gmail_authed/gmail_email) — it left st.session_state.
-    messages (the whole chat history) and adk_session_id (which points at
-    an ADK session still holding the previous run's reconciled_data) fully
-    intact. So a second person signing in on the same browser/machine
-    would see the first person's chat transcript and dashboard numbers
-    the instant they finished signing in, before ever running anything
-    themselves. Clearing every session_state key except the cosmetic
-    theme preference (and letting the sign-in gate's own init code
-    recreate gmail_authed/gmail_email as fresh defaults, and the session-id
-    block below recreate a brand-new empty ADK session) guarantees a
-    completely blank slate for the next account, not just a cleared login.
-    """
-    keep = {"theme"}
-    for key in list(st.session_state.keys()):
-        if key not in keep:
-            del st.session_state[key]
-
-
-def _clear_screen() -> None:
-    """Resets the chat transcript and dashboard back to blank — a fresh ADK
-    session with no reconciled_data — WITHOUT signing out. Unlike
-    _reset_session_for_new_account, this keeps gmail_authed/gmail_email
-    intact: it's for "start a new run" mid-session, not "a different person
-    is signing in now"."""
-    for key in ("messages", "adk_session_id"):
-        if key in st.session_state:
-            del st.session_state[key]
 
 
 @st.cache_resource
@@ -780,27 +869,17 @@ runner = get_runner()
 
 # --- Sidebar: run configuration ---
 with st.sidebar:
-    st.caption(f"✅ Signed in as **{st.session_state.gmail_email or 'your Google account'}**")
-    _clear_col, _signout_col = st.columns(2)
-    with _clear_col:
-        if st.button("Clear screen", use_container_width=True, help="Start a fresh run — keeps you signed in."):
-            _clear_screen()
-            st.rerun()
-    with _signout_col:
-        if st.button("Sign out", use_container_width=True, help="Sign out and shut down this local app."):
-            clear_cached_credentials()
-            _reset_session_for_new_account()
-            st.info("Signed out — shutting down the local app now. You can close this tab.")
-            os._exit(0)
-    st.divider()
-
+    # Account controls (Clear screen / Sign out) live in the top-right
+    # toolbar strip now, not here — see the "Top-right toolbar strip"
+    # section above. Keeping a second copy in the sidebar would mean two
+    # widgets doing the same thing and two places to keep in sync.
     st.header("Reconciliation setup")
     st.caption(
         "🔒 **No automatic ledger yet** — each run reports straight from "
         "Gmail with nothing persisted between runs, to keep API/credit "
         "usage down. You can still explicitly save a snapshot of the "
         "current dashboard to a Google Sheet below (see 'Save to Sheet' "
-        "on the dashboard) — that's a one-off overwrite, not a ledger."
+        "beside the dashboard) — that's a one-off overwrite, not a ledger."
     )
     sheet_id_input = st.text_input(
         "Google Sheet ID (optional, for 'Save to Sheet')",
@@ -809,6 +888,26 @@ with st.sidebar:
         help="The long ID in the Sheet's URL: docs.google.com/spreadsheets/d/THIS_PART/edit",
         key="sheet_id_input",
     )
+    with st.expander("How to set up the Sheet"):
+        st.markdown(
+            "1. Go to [sheets.new](https://sheets.new) — this creates a blank "
+            "Sheet owned by whichever Google account you're signed into in "
+            "that browser.\n"
+            "2. Make sure it's the **same account you signed into ReconAI "
+            "with** (shown top-right). If it isn't, ReconAI won't be allowed "
+            "to write to it — either switch accounts, or use the Sheet's "
+            "**Share** button to give your ReconAI account **Editor** access.\n"
+            "3. Copy the ID out of the URL — it's the long string between "
+            "`/d/` and `/edit`:\n\n"
+            "   `docs.google.com/spreadsheets/d/`**`1a2B3c...xyz`**`/edit`\n\n"
+            "4. Paste just that ID into the box above (not the whole URL).\n"
+            "5. Run a reconciliation, then click **💾 Save to Sheet** at the "
+            "top of the page.\n\n"
+            "ReconAI writes to a tab named **Dashboard**, creating it if it "
+            "doesn't exist. Every save **overwrites** that tab with the "
+            "latest numbers — it never appends, so the tab always reflects "
+            "one run. Any other tabs in the Sheet are left untouched."
+        )
     budget_json = st.text_area(
         "Budget (optional, JSON)",
         value="",
@@ -1003,17 +1102,24 @@ if reconciled:
             unsafe_allow_html=True,
         )
 
-        # --- explicit "Save to Sheet" snapshot — overwrites a "Dashboard"
-        # tab in the pasted Sheet with this run's numbers every time it's
-        # clicked. Never automatic, never a growing ledger. --- and
-        # "Export PDF" — the same report dict rendered as a single,
-        # bookmarked/navigable PDF file (tools/export_tools.py), generated
-        # fresh on every click; nothing is cached or written anywhere. ---
-        _save_col, _pdf_col, _save_status_col = st.columns([1, 1, 2])
-        with _save_col:
-            _save_clicked = st.button("💾 Save to Sheet", use_container_width=True)
-        with _pdf_col:
-            # Same report dict as the dashboard above, plus the last chat
+        # --- Export controls, rendered up into the header slot beside the
+        # RECONAI title (_export_slot, created near the top of the script).
+        # They only ever appear once we're inside this `if reconciled:`
+        # branch — i.e. only when there's actually a report to export.
+        #
+        # "Save to Sheet" overwrites a "Dashboard" tab in the pasted Sheet
+        # with this run's numbers every time it's clicked — never
+        # automatic, never a growing ledger. "Export PDF" renders the same
+        # report dict as a single bookmarked/navigable PDF
+        # (tools/export_tools.py), generated fresh on every click and
+        # never cached or written anywhere.
+        #
+        # Save results come back as st.toast rather than inline
+        # success/error boxes: the header strip is too narrow for a
+        # message, and a toast doesn't shove the dashboard down the page. ---
+        with _export_slot.container(horizontal=True, horizontal_alignment="right"):
+            _save_clicked = st.button("💾 Save to Sheet", key="export_save_sheet")
+            # Same report dict as the dashboard below, plus the last chat
             # reply (if any) as a narrative appendix — see tools/export_tools.py.
             _last_assistant_text = next(
                 (m["content"] for m in reversed(st.session_state.get("messages", [])) if m.get("role") == "assistant"),
@@ -1030,24 +1136,26 @@ if reconciled:
                 data=_pdf_bytes,
                 file_name=f"reconai-report-{datetime.now().strftime('%Y-%m-%d')}.pdf",
                 mime="application/pdf",
-                use_container_width=True,
+                key="export_pdf",
             )
-        with _save_status_col:
-            if _save_clicked:
-                _sheet_id = (st.session_state.get("sheet_id_input") or "").strip()
-                if not _sheet_id:
-                    st.warning("Paste a Google Sheet ID in the sidebar first.")
+
+        if _save_clicked:
+            _sheet_id = (st.session_state.get("sheet_id_input") or "").strip()
+            if not _sheet_id:
+                st.toast("Paste a Google Sheet ID in the sidebar first — see 'How to set up the Sheet'.", icon="⚠️")
+            else:
+                with st.spinner("Saving this dashboard snapshot to your Sheet..."):
+                    _save_result = save_report_to_sheet(report, _sheet_id)
+                if _save_result["status"] == "ok":
+                    _sheet_url = f"https://docs.google.com/spreadsheets/d/{_sheet_id}/edit"
+                    st.toast("Saved to the Sheet's Dashboard tab.", icon="✅")
+                    st.caption(f"💾 Saved — [open the Dashboard tab]({_sheet_url}).")
                 else:
-                    with st.spinner("Saving this dashboard snapshot to your Sheet..."):
-                        _save_result = save_report_to_sheet(report, _sheet_id)
-                    if _save_result["status"] == "ok":
-                        _sheet_url = f"https://docs.google.com/spreadsheets/d/{_sheet_id}/edit"
-                        st.success(f"Saved — [open the Dashboard tab]({_sheet_url}).")
-                    else:
-                        st.error(
-                            "Couldn't save to that Sheet — double-check the Sheet ID and that "
-                            "you've shared edit access with your signed-in Google account."
-                        )
+                    st.toast("Couldn't save to that Sheet.", icon="⚠️")
+                    st.caption(
+                        "Couldn't save to that Sheet — double-check the Sheet ID and that "
+                        "your signed-in Google account has edit access to it."
+                    )
 
         left, right = st.columns([3, 2])
 
