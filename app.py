@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import tempfile
+from datetime import datetime
 
 import plotly.graph_objects as go
 import streamlit as st
@@ -30,6 +31,7 @@ from tools.google_auth import (
     get_credentials,
     get_signed_in_email,
 )
+from tools.export_tools import export_report_to_pdf
 from tools.reporting_tools import generate_monthly_report, save_report_to_sheet
 
 load_dotenv()
@@ -1003,10 +1005,33 @@ if reconciled:
 
         # --- explicit "Save to Sheet" snapshot — overwrites a "Dashboard"
         # tab in the pasted Sheet with this run's numbers every time it's
-        # clicked. Never automatic, never a growing ledger. ---
-        _save_col, _save_status_col = st.columns([1, 3])
+        # clicked. Never automatic, never a growing ledger. --- and
+        # "Export PDF" — the same report dict rendered as a single,
+        # bookmarked/navigable PDF file (tools/export_tools.py), generated
+        # fresh on every click; nothing is cached or written anywhere. ---
+        _save_col, _pdf_col, _save_status_col = st.columns([1, 1, 2])
         with _save_col:
             _save_clicked = st.button("💾 Save to Sheet", use_container_width=True)
+        with _pdf_col:
+            # Same report dict as the dashboard above, plus the last chat
+            # reply (if any) as a narrative appendix — see tools/export_tools.py.
+            _last_assistant_text = next(
+                (m["content"] for m in reversed(st.session_state.get("messages", [])) if m.get("role") == "assistant"),
+                None,
+            )
+            _pdf_bytes = export_report_to_pdf(
+                report,
+                transaction_count=len(transactions),
+                narrative_markdown=_last_assistant_text,
+                generated_for=st.session_state.get("gmail_email"),
+            )
+            st.download_button(
+                "📄 Export PDF",
+                data=_pdf_bytes,
+                file_name=f"reconai-report-{datetime.now().strftime('%Y-%m-%d')}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
         with _save_status_col:
             if _save_clicked:
                 _sheet_id = (st.session_state.get("sheet_id_input") or "").strip()

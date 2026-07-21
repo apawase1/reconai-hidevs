@@ -66,7 +66,7 @@ pydantic_core==2.46.4
 pydeck==0.9.3
 pyOpenSSL==26.3.0
 pyparsing==3.3.2
-pypdf==6.13.1        # test-only: builds a real encrypted PDF in tests/test_extraction.py
+pypdf==6.13.1        # test-only: builds a real encrypted PDF in tests/test_extraction.py, and reads back tools/export_tools.py's output in tests/test_export.py
 pytest==8.4.2
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
@@ -74,7 +74,7 @@ python-multipart==0.0.32
 pytz==2026.2
 PyYAML==6.0.3
 referencing==0.36.2
-reportlab==4.5.1     # test-only: builds a real encrypted PDF in tests/test_extraction.py
+reportlab==4.5.1     # used at runtime by tools/export_tools.py's "Export PDF" feature; also builds a real encrypted PDF in tests/test_extraction.py
 requests==2.32.5
 requests-oauthlib==2.0.0
 requests-toolbelt==1.0.0
