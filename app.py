@@ -201,9 +201,17 @@ def _inject_theme():
         [data-testid="stToolbar"], [data-testid="stAppToolbar"] {{
             z-index: 999992;
         }}
+        /* Vertically aligned to the ⋮ menu by matching Streamlit's own
+        header box exactly rather than guessing a top offset: its header
+        is `height: 3.75rem` (theme.sizes.headerHeight) with
+        `align-items: center`, so anchoring at top:0 with the same height
+        and centering puts our controls on precisely the same centerline
+        the ⋮ sits on. A hand-tuned `top` value drifted because our
+        buttons (34px) aren't the same height as the ⋮ button. */
         .st-key-recon-topbar {{
             position: fixed;
-            top: 0.5rem;
+            top: 0;
+            height: 3.75rem;
             right: 3.4rem;   /* leaves the ⋮ menu uncovered, immediately right of us */
             z-index: 999991;
             display: flex !important;
@@ -277,6 +285,17 @@ def _inject_theme():
             justify-content: center !important;
             box-shadow: none !important;
         }}
+        /* The account_circle glyph itself (a Material Symbols font span,
+        not an svg) — sized and centered explicitly, since with the label
+        empty there's no text to size it against. */
+        .st-key-recon-topbar [data-testid="stPopover"] button [data-testid="stIconMaterial"] {{
+            font-size: 22px !important;
+            width: 22px !important;
+            height: 22px !important;
+            line-height: 1 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }}
         .st-key-recon-topbar [data-testid="stPopover"] button p {{
             font-size: 22px !important;
             line-height: 1 !important;
@@ -287,13 +306,15 @@ def _inject_theme():
             border-color: {BORDER_GLOW} !important;
         }}
         /* Streamlit's popover trigger always appends its own trailing
-        "expand" chevron after the label/icon - there's no parameter to
-        turn it off. With an icon-only, no-text trigger that chevron reads
-        as a stray mark floating next to the avatar, so hide it: it's the
-        second <svg> in the button (the first is the account_circle icon
-        itself), and/or any <svg> that immediately follows another <svg>. */
-        .st-key-recon-topbar [data-testid="stPopover"] button svg:nth-of-type(2),
-        .st-key-recon-topbar [data-testid="stPopover"] button svg + svg {{
+        "expand" chevron (StyledPopoverButtonIcon -> ExpandMore) after the
+        label/icon, with no parameter to turn it off. On an icon-only
+        trigger it reads as a stray mark floating beside the avatar.
+        The chevron is the ONLY <svg> in the button: the account_circle
+        icon is a Material-Symbols *font glyph* in a
+        <span data-testid="stIconMaterial">, not an svg. So hiding every
+        svg in the trigger removes the chevron and leaves the account
+        icon untouched. */
+        .st-key-recon-topbar [data-testid="stPopoverButton"] svg {{
             display: none !important;
         }}
         /* The popover's floating panel is rendered in a portal outside the
