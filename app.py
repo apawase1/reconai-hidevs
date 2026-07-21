@@ -206,11 +206,25 @@ def _inject_theme():
             top: 0.5rem;
             right: 3.4rem;   /* leaves the ⋮ menu uncovered, immediately right of us */
             z-index: 999991;
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
             width: auto !important;
             gap: 8px !important;
         }}
-        .st-key-recon-topbar [data-testid="stElementContainer"] {{
+        /* Both children of the strip ("Clear screen" and the account
+        popover) are Streamlit block-level elements that default to
+        width:100% when stacked vertically - inside our horizontal strip
+        that stretch is what pushed the popover onto its own line below
+        "Clear screen" instead of sitting beside it. Popovers in
+        particular aren't a plain widget (stElementContainer) but a whole
+        layout block (stPopover), so it needs its own explicit override,
+        not just the generic element-container one. */
+        .st-key-recon-topbar [data-testid="stElementContainer"],
+        .st-key-recon-topbar [data-testid="stPopover"] {{
             width: auto !important;
+            flex: 0 0 auto !important;
         }}
         /* Google's own button spec (dark variant): #131314 surface,
         #8E918F hairline border, #E3E3E3 Roboto Medium 14px label, 20px
@@ -235,7 +249,7 @@ def _inject_theme():
             background-position: 12px center !important;
             background-size: 18px 18px !important;
         }}
-        .st-key-recon_gbtn_signin button:hover {{
+        .st-key-gate_signin button:hover {{
             background-color: #1E1F20 !important;
             border-color: #E3E3E3 !important;
             box-shadow: none !important;
@@ -243,8 +257,13 @@ def _inject_theme():
         /* Signed-in account control: a plain generic account-circle icon,
         no visible email/initial next to it — the address only shows once
         the popover is actually opened (hover also surfaces it via the
-        button's own tooltip). A round icon button, not a text button. */
-        .st-key-recon_account_popover_wrap button {{
+        button's own tooltip). A round icon button, not a text button.
+        Scoped to our topbar strip (rather than a dedicated key) since
+        st.popover doesn't accept a key= argument in this Streamlit
+        version — [data-testid="stPopover"] is the only hook available,
+        so we scope it under .st-key-recon-topbar to avoid touching any
+        other popover that might exist elsewhere in the app. */
+        .st-key-recon-topbar [data-testid="stPopover"] button {{
             background: {SURFACE_ALT} !important;
             color: {TEXT_MUTED} !important;
             border: 1px solid {BORDER} !important;
@@ -258,14 +277,24 @@ def _inject_theme():
             justify-content: center !important;
             box-shadow: none !important;
         }}
-        .st-key-recon_account_popover_wrap button p {{
+        .st-key-recon-topbar [data-testid="stPopover"] button p {{
             font-size: 22px !important;
             line-height: 1 !important;
             margin: 0 !important;
         }}
-        .st-key-recon_account_popover_wrap button:hover {{
+        .st-key-recon-topbar [data-testid="stPopover"] button:hover {{
             color: {TEAL} !important;
             border-color: {BORDER_GLOW} !important;
+        }}
+        /* Streamlit's popover trigger always appends its own trailing
+        "expand" chevron after the label/icon - there's no parameter to
+        turn it off. With an icon-only, no-text trigger that chevron reads
+        as a stray mark floating next to the avatar, so hide it: it's the
+        second <svg> in the button (the first is the account_circle icon
+        itself), and/or any <svg> that immediately follows another <svg>. */
+        .st-key-recon-topbar [data-testid="stPopover"] button svg:nth-of-type(2),
+        .st-key-recon-topbar [data-testid="stPopover"] button svg + svg {{
+            display: none !important;
         }}
         /* The popover's floating panel is rendered in a portal outside the
         normal layout, so it needs its own background/text-color rules —
@@ -967,32 +996,31 @@ with st.container(key="recon-topbar", horizontal=True):
             _clear_screen()
             st.rerun()
         _email = st.session_state.gmail_email or "your account"
-        with st.container(key="recon_account_popover_wrap"):
-            with st.popover("", icon=":material/account_circle:", help=f"Account: {_email}"):
-                st.markdown(
-                    f"""
-                    <div style="display:flex; align-items:center; gap:10px; padding:2px 4px 12px;">
-                        {_account_avatar_html(_email, size=36)}
-                        <div style="overflow:hidden;">
-                            <div style="font-size:13px; font-weight:600; white-space:nowrap;
-                                        overflow:hidden; text-overflow:ellipsis; max-width:220px;">{_email}</div>
-                            <div style="font-size:11px; color:{TEXT_MUTED};">Signed in with Google</div>
-                        </div>
+        with st.popover("", icon=":material/account_circle:", help=f"Account: {_email}"):
+            st.markdown(
+                f"""
+                <div style="display:flex; align-items:center; gap:10px; padding:2px 4px 12px;">
+                    {_account_avatar_html(_email, size=36)}
+                    <div style="overflow:hidden;">
+                        <div style="font-size:13px; font-weight:600; white-space:nowrap;
+                                    overflow:hidden; text-overflow:ellipsis; max-width:220px;">{_email}</div>
+                        <div style="font-size:11px; color:{TEXT_MUTED};">Signed in with Google</div>
                     </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-                if st.button("🔁 Switch account", key="recon_switch_account", use_container_width=True,
-                             help="Sign out and immediately pick a different Google account — the app keeps running."):
-                    clear_cached_credentials()
-                    _reset_session_for_new_account()
-                    st.rerun()
-                if st.button("🚪 Log out", key="recon_logout", use_container_width=True,
-                             help="Sign out and shut down this local app."):
-                    clear_cached_credentials()
-                    _reset_session_for_new_account()
-                    st.info("Signed out — shutting down the local app now. You can close this tab.")
-                    os._exit(0)
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if st.button("🔁 Switch account", key="recon_switch_account", use_container_width=True,
+                         help="Sign out and immediately pick a different Google account — the app keeps running."):
+                clear_cached_credentials()
+                _reset_session_for_new_account()
+                st.rerun()
+            if st.button("🚪 Log out", key="recon_logout", use_container_width=True,
+                         help="Sign out and shut down this local app."):
+                clear_cached_credentials()
+                _reset_session_for_new_account()
+                st.info("Signed out — shutting down the local app now. You can close this tab.")
+                os._exit(0)
 
 if not st.session_state.gmail_authed:
     st.markdown(
