@@ -98,7 +98,7 @@ reconai/
 
 `credentials.json`, `token.json`, and `.env` are git-ignored and docker-ignored — never commit them.
 
-**Switching accounts:** the top-right corner holds **"Clear screen"** and a Google-styled account button (avatar + your signed-in address). "Clear screen" resets the chat and dashboard to a blank run without touching your Google sign-in — use it to start a fresh reconciliation. Clicking the account button opens a menu with two different actions, not a straight sign-out:
+**Switching accounts:** the top-right corner holds **"Clear screen"** and a plain account-circle icon button (no visible email — hover it for a tooltip, or open it to see the address). "Clear screen" resets the chat and dashboard to a blank run without touching your Google sign-in — use it to start a fresh reconciliation. Clicking the account icon opens a menu with two different actions, not a straight sign-out:
   - **Switch account** clears the cached token and every trace of the current session, then takes you straight back to the sign-in screen — the app keeps running, so you can immediately sign in as someone else in the same browser tab.
   - **Log out** does the same cleanup and then shuts down the local app entirely — since it's a single-user local demo tool, "logged out" means "stopped," not "showing someone else's login screen in the same running process." Restart with `streamlit run app.py` (or your usual launch command) to use it again.
 
@@ -119,7 +119,7 @@ reconai/
 ## Switching to a different Google account
 
 1. Add the other account's email as a **Test user** in Google Cloud Console → APIs & Services → OAuth consent screen, *before* the demo — unverified apps block sign-in for anyone not on that list.
-2. In the app's top-right corner, click the Google account button and choose **"Switch account"** — this drops the cached token and wipes the session, then drops you straight back on the sign-in screen without restarting anything.
+2. In the app's top-right corner, click the account-circle icon and choose **"Switch account"** — this drops the cached token and wipes the session, then drops you straight back on the sign-in screen without restarting anything.
 3. Click **"Sign in with Google"** and pick the other account in the browser window that opens.
 4. To go back afterward, open the account menu and choose **"Switch account"** again, signing back in with your own account the same way. (Use **"Log out"** instead if you're done for good and want the local app to stop.)
 

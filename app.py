@@ -217,7 +217,7 @@ def _inject_theme():
         "G" mark on the left, 4px radius. Deliberately NOT restyled with
         this app's neon palette — a Google sign-in control is supposed to
         look like Google's, not like the surrounding product. */
-        .st-key-recon_gbtn_signin button {{
+        .st-key-gate_signin button {{
             background: #131314 !important;
             color: #E3E3E3 !important;
             border: 1px solid #8E918F !important;
@@ -240,29 +240,32 @@ def _inject_theme():
             border-color: #E3E3E3 !important;
             box-shadow: none !important;
         }}
-        /* Signed-in account control: a clickable popover (not a straight
-        sign-out button) whose trigger is styled to the same Google dark
-        button spec as the sign-in button above, just without the "G"
-        mark — its own circled-letter avatar glyph is already part of the
-        label text. */
+        /* Signed-in account control: a plain generic account-circle icon,
+        no visible email/initial next to it — the address only shows once
+        the popover is actually opened (hover also surfaces it via the
+        button's own tooltip). A round icon button, not a text button. */
         .st-key-recon_account_popover_wrap button {{
-            background: #131314 !important;
-            color: #E3E3E3 !important;
-            border: 1px solid #8E918F !important;
-            border-radius: 4px !important;
-            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif !important;
-            font-weight: 500 !important;
-            font-size: 13px !important;
-            letter-spacing: 0.1px !important;
+            background: {SURFACE_ALT} !important;
+            color: {TEXT_MUTED} !important;
+            border: 1px solid {BORDER} !important;
+            border-radius: 50% !important;
+            width: 34px !important;
             height: 34px !important;
             min-height: 34px !important;
-            padding: 0 12px !important;
+            padding: 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
             box-shadow: none !important;
         }}
+        .st-key-recon_account_popover_wrap button p {{
+            font-size: 22px !important;
+            line-height: 1 !important;
+            margin: 0 !important;
+        }}
         .st-key-recon_account_popover_wrap button:hover {{
-            background-color: #1E1F20 !important;
-            border-color: #E3E3E3 !important;
-            box-shadow: none !important;
+            color: {TEAL} !important;
+            border-color: {BORDER_GLOW} !important;
         }}
         /* The popover's floating panel is rendered in a portal outside the
         normal layout, so it needs its own background/text-color rules —
@@ -294,9 +297,20 @@ def _inject_theme():
 
         /* Hover-to-reveal "ⓘ" badge — used for the Sheet-ID setup steps
         in the sidebar, a lighter-weight alternative to a click-to-open
-        expander for a short reference note. Pure CSS :hover, no JS. */
-        .recon-info-badge {{
+        expander for a short reference note. Pure CSS :hover, no JS.
+
+        The tooltip's positioning context is the whole label ROW
+        (.recon-info-row), not the tiny badge itself — with left:0/right:0
+        it always spans exactly the row's own width, which is already
+        constrained to the sidebar's content area. Anchoring it to the
+        badge instead (a fixed pixel width growing sideways from wherever
+        the badge happens to land after the label text wraps) is what
+        made it spill past the sidebar's edge and get clipped by the
+        sidebar's own overflow. */
+        .recon-info-row {{
             position: relative;
+        }}
+        .recon-info-badge {{
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -316,7 +330,7 @@ def _inject_theme():
             border-color: {BORDER_GLOW};
             color: {TEAL};
         }}
-        .recon-info-badge .recon-info-tooltip {{
+        .recon-info-row .recon-info-tooltip {{
             visibility: hidden;
             opacity: 0;
             pointer-events: none;
@@ -324,8 +338,12 @@ def _inject_theme():
             position: absolute;
             z-index: 999995;
             left: 0;
-            top: 22px;
-            width: 280px;
+            right: 0;
+            top: 100%;
+            margin-top: 6px;
+            width: auto;
+            max-width: 100%;
+            box-sizing: border-box;
             background: {SURFACE};
             border: 1px solid {BORDER_GLOW};
             border-radius: 8px;
@@ -338,7 +356,7 @@ def _inject_theme():
             text-align: left;
             cursor: auto;
         }}
-        .recon-info-badge:hover .recon-info-tooltip {{
+        .recon-info-badge:hover ~ .recon-info-tooltip {{
             visibility: visible;
             opacity: 1;
         }}
@@ -661,17 +679,6 @@ def _account_avatar_html(email: str, size: int = 32) -> str:
     )
 
 
-def _account_avatar_glyph(email: str) -> str:
-    """A single-character stand-in for the avatar, for use inside a plain
-    Streamlit button label (button labels can't hold arbitrary HTML/CSS,
-    only text) — a Unicode "circled letter" reads as a small round badge
-    even as plain text."""
-    initial = (email or "?").strip()[:1].upper()
-    if "A" <= initial <= "Z":
-        return chr(0x24B6 + (ord(initial) - ord("A")))
-    return "\U0001F464"  # generic silhouette glyph if the email is unusable
-
-
 # --- Mock data for UI testing, no Gmail/Gemini/Sheets calls involved ---
 # Same shape check_duplicates_and_budget actually returns (in fact, this
 # exact dict was PRODUCED by calling check_duplicates_and_budget on a
@@ -947,13 +954,13 @@ def _do_sign_in() -> None:
 # "Deploy this app" item, so no capability is removed). The ⋮ menu itself
 # stays put, immediately to the right of this strip.
 #
-# Rendered before the sign-in gate's st.stop() so it's present in BOTH
-# states: signed out it's a single "Sign in with Google" button; signed in
-# it's "Clear screen" plus a clickable account popover (avatar + email)
-# that opens to "Switch account" (re-authenticate as someone else without
-# restarting the app) and "Log out" (the original explicit request —
-# signs out AND stops the local app) — not a bare sign-out button, since
-# those are two different actions with different consequences.
+# Rendered before the sign-in gate's st.stop() so it's present once
+# signed in: "Clear screen" plus a clickable account popover. The trigger
+# is a plain generic account-circle icon — no visible email, no colored
+# initial — the address only shows once the menu is actually opened.
+# Signed out, this strip renders nothing at all: the centered "Sign in
+# with Google" button on the gate screen below is the only sign-in
+# control, so there's exactly one, not two duplicates on the same screen.
 with st.container(key="recon-topbar", horizontal=True):
     if st.session_state.gmail_authed:
         if st.button("Clear screen", key="recon_topbtn_clear", help="Start a fresh run — keeps you signed in."):
@@ -961,7 +968,7 @@ with st.container(key="recon-topbar", horizontal=True):
             st.rerun()
         _email = st.session_state.gmail_email or "your account"
         with st.container(key="recon_account_popover_wrap"):
-            with st.popover(f"{_account_avatar_glyph(_email)}  {_email}  ▾", help="Account menu"):
+            with st.popover("", icon=":material/account_circle:", help=f"Account: {_email}"):
                 st.markdown(
                     f"""
                     <div style="display:flex; align-items:center; gap:10px; padding:2px 4px 12px;">
@@ -986,9 +993,6 @@ with st.container(key="recon-topbar", horizontal=True):
                     _reset_session_for_new_account()
                     st.info("Signed out — shutting down the local app now. You can close this tab.")
                     os._exit(0)
-    else:
-        if st.button("Sign in with Google", key="recon_gbtn_signin"):
-            _do_sign_in()
 
 if not st.session_state.gmail_authed:
     st.markdown(
@@ -1038,23 +1042,22 @@ with st.sidebar:
     )
     st.markdown(
         f"""
-        <div style="font-size:14px; margin-bottom:4px; display:flex; align-items:center;">
-            Google Sheet ID <span style="color:{TEXT_MUTED}; margin-left:4px;">(optional, for 'Save to Sheet')</span>
-            <span class="recon-info-badge">i
-                <span class="recon-info-tooltip">
-                    <b>Setting up the Sheet:</b><br>
-                    1. Create a blank Sheet at <b>sheets.new</b> while signed into
-                    the <b>same Google account</b> you signed into ReconAI with.<br>
-                    2. Different account? Either switch accounts, or share the
-                    Sheet with <b>Editor</b> access to your ReconAI account.<br>
-                    3. Copy the ID from the URL — the part between
-                    <code>/d/</code> and <code>/edit</code>.<br>
-                    4. Paste just that ID below, then click
-                    <b>💾 Save to Sheet</b> after a run.<br><br>
-                    Saves overwrite a <b>Dashboard</b> tab each time —
-                    they never append. Other tabs are left untouched.
-                </span>
-            </span>
+        <div class="recon-info-row" style="font-size:14px; margin-bottom:4px; display:flex; align-items:center; flex-wrap:wrap;">
+            <span>Google Sheet ID <span style="color:{TEXT_MUTED}; margin-left:4px;">(optional, for 'Save to Sheet')</span></span>
+            <span class="recon-info-badge">i</span>
+            <div class="recon-info-tooltip">
+                <b>Setting up the Sheet:</b><br>
+                1. Create a blank Sheet at <b>sheets.new</b> while signed into
+                the <b>same Google account</b> you signed into ReconAI with.<br>
+                2. Different account? Either switch accounts, or share the
+                Sheet with <b>Editor</b> access to your ReconAI account.<br>
+                3. Copy the ID from the URL — the part between
+                <code>/d/</code> and <code>/edit</code>.<br>
+                4. Paste just that ID below, then click
+                <b>💾 Save to Sheet</b> after a run.<br><br>
+                Saves overwrite a <b>Dashboard</b> tab each time —
+                they never append. Other tabs are left untouched.
+            </div>
         </div>
         """,
         unsafe_allow_html=True,
