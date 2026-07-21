@@ -202,12 +202,26 @@ def _inject_theme():
             z-index: 999992;
         }}
         /* Vertically aligned to the ⋮ menu by matching Streamlit's own
-        header box exactly rather than guessing a top offset: its header
-        is `height: 3.75rem` (theme.sizes.headerHeight) with
-        `align-items: center`, so anchoring at top:0 with the same height
-        and centering puts our controls on precisely the same centerline
-        the ⋮ sits on. A hand-tuned `top` value drifted because our
-        buttons (34px) aren't the same height as the ⋮ button. */
+        header box exactly: its header is `height: 3.75rem`
+        (theme.sizes.headerHeight) with its children centered inside that
+        box, so anchoring our strip at top:0 with the same height and
+        centering our own children puts everything on the identical
+        centerline.
+
+        Confirmed via actual rendered CSS (not guessed): Streamlit ships
+        its own blanket rule targeting [data-testid="stHorizontalBlock"]
+        that forces align-items to flex-start with !important. A plain
+        .st-key-recon-topbar class selector setting align-items to
+        center (also !important) has the exact same specificity (0,1,0)
+        as that attribute selector, so it was losing the tie on source
+        order — !important alone doesn't help when both sides have it
+        and specificity is equal. Combining the class AND the attribute
+        selector together
+        (`.st-key-recon-topbar[data-testid="stHorizontalBlock"]`) raises
+        specificity to (0,2,0), which wins outright regardless of order.
+        st.container(..., vertical_alignment="center") was also tried in
+        Python and left no effect on the rendered output in this
+        Streamlit version, so the fix is CSS-only. */
         .st-key-recon-topbar {{
             position: fixed;
             top: 0;
@@ -217,19 +231,22 @@ def _inject_theme():
             display: flex !important;
             flex-direction: row !important;
             flex-wrap: nowrap !important;
-            align-items: center !important;
             width: auto !important;
             gap: 8px !important;
+        }}
+        .st-key-recon-topbar[data-testid="stHorizontalBlock"] {{
+            align-items: center !important;
         }}
         /* Both children of the strip ("Clear screen" and the account
         popover) are Streamlit block-level elements that default to
         width:100% when stacked vertically - inside our horizontal strip
         that stretch is what pushed the popover onto its own line below
-        "Clear screen" instead of sitting beside it. Popovers in
-        particular aren't a plain widget (stElementContainer) but a whole
-        layout block (stPopover), so it needs its own explicit override,
-        not just the generic element-container one. */
+        "Clear screen" instead of sitting beside it. The popover's own
+        direct wrapper is [data-testid="stLayoutWrapper"] (confirmed via
+        the rendered DOM), not stPopover as originally guessed — kept
+        both selectors since matching an absent testid is harmless. */
         .st-key-recon-topbar [data-testid="stElementContainer"],
+        .st-key-recon-topbar [data-testid="stLayoutWrapper"],
         .st-key-recon-topbar [data-testid="stPopover"] {{
             width: auto !important;
             flex: 0 0 auto !important;
@@ -1011,7 +1028,7 @@ def _do_sign_in() -> None:
 # Signed out, this strip renders nothing at all: the centered "Sign in
 # with Google" button on the gate screen below is the only sign-in
 # control, so there's exactly one, not two duplicates on the same screen.
-with st.container(key="recon-topbar", horizontal=True):
+with st.container(key="recon-topbar", horizontal=True, vertical_alignment="center"):
     if st.session_state.gmail_authed:
         if st.button("Clear screen", key="recon_topbtn_clear", help="Start a fresh run — keeps you signed in."):
             _clear_screen()
@@ -1061,7 +1078,7 @@ if not st.session_state.gmail_authed:
     )
     _gate_l, _gate_c, _gate_r = st.columns([1, 1, 1])
     with _gate_c:
-        if st.button("🔐  Sign in with Google", key="gate_signin", use_container_width=True):
+        if st.button(" Sign in with Google", key="gate_signin", use_container_width=True):
             _do_sign_in()
     st.stop()
 # --- end sign-in gate ------------------------------------------------------
