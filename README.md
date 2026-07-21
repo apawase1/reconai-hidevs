@@ -14,7 +14,9 @@ Built for freelancers and small business owners in India (Open Track). This audi
 >
 > **Discovery is currently Gmail-only** — Drive support (`fetch_drive_receipts`) has been deliberately removed to cut Google API call volume and Gemini token usage per run. See `RECONAI_ARCHITECTURE_ADDENDUM.md` section D if you want to re-add it later.
 >
-> **Google Sheets sync is parked as a future integration**, not deleted — `get_processed_ids`/`append_to_ledger`/`mark_processed`/`query_ledger` still exist in `tools/reconciliation_tools.py` and `tools/reporting_tools.py`, but no agent currently calls them, to cut API calls and setup friction (missing-tab errors, cross-run memory that needs a Sheet to exist). This build is Gmail-in, report-out: nothing is persisted between runs, and every run re-fetches/re-extracts the full date-scoped range. Re-enable by re-wiring those four tools back into `agents.py`.
+> **Google Sheets *ledger* sync is parked as a future integration**, not deleted — `get_processed_ids`/`append_to_ledger`/`mark_processed`/`query_ledger` still exist in `tools/reconciliation_tools.py` and `tools/reporting_tools.py`, but no agent currently calls them, to cut API calls and setup friction (missing-tab errors, cross-run memory that needs a Sheet to exist). This build is Gmail-in, report-out: nothing is persisted between runs, and every run re-fetches/re-extracts the full date-scoped range. Re-enable by re-wiring those four tools back into `agents.py`.
+>
+> **This is separate from "Save to Sheet"**, which *is* live — the dashboard has an explicit button that writes the current run's numbers to a "Dashboard" tab in a Sheet you paste in, overwriting it each time. It's a one-off snapshot export, not the ledger above, and it's never called automatically.
 
 ## Architecture
 
@@ -108,6 +110,7 @@ reconai/
 - Duplicate-flagged transactions are excluded from every total (they're the same charge counted twice, not extra spend) but still shown, tagged, in the recent-transactions list so you can review them.
 - Ask follow-up questions ("Why did I spend more this month?") — the Reporting Agent can only answer from this run's own report data; there's no ledger to query across past runs in this build.
 - If Gmail has no invoice/receipt-looking emails, Discovery will legitimately report 0 found — that's correct behavior, not a bug. Send yourself a test email with a subject like "Invoice from Test Vendor" to get a real end-to-end run.
+- **Save to Sheet**: paste a Google Sheet ID (the long ID in its URL) into the sidebar, then click **"💾 Save to Sheet"** above the dashboard. This writes the current run's numbers to a "Dashboard" tab, creating that tab if it doesn't exist yet — every click overwrites the tab with the latest snapshot, it never appends or accumulates rows. The Sheet just needs to be one your signed-in Google account can edit (e.g. one you created).
 - **Password-protected PDF attachments**: if an invoice email has a locked PDF attached, Discovery reports everything else as normal and then asks you, in the chat reply, for that specific file's password (naming the file and which email it came from). If the email itself already states the password format — common with bank e-statements ("password is the first 4 letters of your name + your DOB in DDMM," "password is your PAN in uppercase") — Discovery reads that and quotes the hint back to you instead of making you dig it up yourself. Just reply with the password in your next message — no special format required, Discovery will match it to the file it just asked about and unlock it via `unlock_pdf_attachment`. The password itself is never written anywhere or repeated back in any reply.
 
 ## Switching to a different Google account

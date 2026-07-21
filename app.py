@@ -30,7 +30,7 @@ from tools.google_auth import (
     get_credentials,
     get_signed_in_email,
 )
-from tools.reporting_tools import generate_monthly_report
+from tools.reporting_tools import generate_monthly_report, save_report_to_sheet
 
 load_dotenv()
 
@@ -794,8 +794,18 @@ with st.sidebar:
 
     st.header("Reconciliation setup")
     st.caption(
-        "🔒 **Google Sheets sync** — coming soon. This run reports straight "
-        "from Gmail with no ledger write, to keep API/credit usage down."
+        "🔒 **No automatic ledger yet** — each run reports straight from "
+        "Gmail with nothing persisted between runs, to keep API/credit "
+        "usage down. You can still explicitly save a snapshot of the "
+        "current dashboard to a Google Sheet below (see 'Save to Sheet' "
+        "on the dashboard) — that's a one-off overwrite, not a ledger."
+    )
+    sheet_id_input = st.text_input(
+        "Google Sheet ID (optional, for 'Save to Sheet')",
+        value="",
+        placeholder="Paste the ID from the Sheet's URL",
+        help="The long ID in the Sheet's URL: docs.google.com/spreadsheets/d/THIS_PART/edit",
+        key="sheet_id_input",
     )
     budget_json = st.text_area(
         "Budget (optional, JSON)",
@@ -990,6 +1000,29 @@ if reconciled:
             """,
             unsafe_allow_html=True,
         )
+
+        # --- explicit "Save to Sheet" snapshot — overwrites a "Dashboard"
+        # tab in the pasted Sheet with this run's numbers every time it's
+        # clicked. Never automatic, never a growing ledger. ---
+        _save_col, _save_status_col = st.columns([1, 3])
+        with _save_col:
+            _save_clicked = st.button("💾 Save to Sheet", use_container_width=True)
+        with _save_status_col:
+            if _save_clicked:
+                _sheet_id = (st.session_state.get("sheet_id_input") or "").strip()
+                if not _sheet_id:
+                    st.warning("Paste a Google Sheet ID in the sidebar first.")
+                else:
+                    with st.spinner("Saving this dashboard snapshot to your Sheet..."):
+                        _save_result = save_report_to_sheet(report, _sheet_id)
+                    if _save_result["status"] == "ok":
+                        _sheet_url = f"https://docs.google.com/spreadsheets/d/{_sheet_id}/edit"
+                        st.success(f"Saved — [open the Dashboard tab]({_sheet_url}).")
+                    else:
+                        st.error(
+                            "Couldn't save to that Sheet — double-check the Sheet ID and that "
+                            "you've shared edit access with your signed-in Google account."
+                        )
 
         left, right = st.columns([3, 2])
 

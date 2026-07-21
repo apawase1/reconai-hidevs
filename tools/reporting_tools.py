@@ -14,6 +14,9 @@ from googleapiclient.errors import HttpError
 
 from tools.google_auth import get_service
 from tools.reconciliation_tools import LEDGER_TAB
+from tools.security import sanitize_csv_cell
+
+DASHBOARD_TAB = "Dashboard"
 
 LEDGER_COLUMNS = [
     "date", "vendor", "amount", "category",
@@ -389,3 +392,127 @@ def query_ledger(sheet_id: str, filter_category: Optional[str] = None) -> Dict[s
         return {"status": "ok", "rows": rows, "row_count": len(rows)}
     except HttpError as e:
         return {"status": "failed", "rows": [], "row_count": 0, "error": str(e)}
+
+
+def _ensure_tab_exists(service, sheet_id: str, tab_name: str) -> None:
+    """Creates tab_name in the given Sheet if it doesn't already exist.
+
+    save_report_to_sheet is meant to work the first time someone points it
+    at a brand-new, empty Google Sheet — without this, the very first
+    values().update() call would fail with an "Unable to parse range"-style
+    error because the tab it's targeting doesn't exist yet.
+    """
+    meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+    existing_titles = {s["properties"]["title"] for s in meta.get("sheets", [])}
+    if tab_name not in existing_titles:
+        service.spreadsheets().batchUpdate(
+            spreadsheetId=sheet_id,
+            body={"requests": [{"addSheet": {"properties": {"title": tab_name}}}]},
+        ).execute()
+
+
+def save_report_to_sheet(report: Dict[str, Any], sheet_id: str) -> Dict[str, Any]:
+    """Writes the current monthly report to a "Dashboard" tab in the given
+    Google Sheet, OVERWRITING whatever was there before.
+
+    This is a snapshot of the latest run only — not a growing ledger. It
+    is a completely separate, much smaller feature from the dormant
+    Sheets ledger (get_processed_ids/append_to_ledger/mark_processed/
+    query_ledger, which append rows to a "Ledger" tab and are still not
+    wired into any agent — see the module docstring): this function is
+    only ever called in direct response to an explicit user action (e.g. a
+    "Save to Sheet" button in the UI), never automatically as part of a
+    reconciliation run, and every call replaces the tab's entire contents
+    rather than appending to it.
+
+    Args:
+        report: The dict returned by generate_monthly_report.
+        sheet_id: The target Google Sheet's ID (from its URL).
+
+    Returns:
+        dict with keys: status ("ok"/"failed"), rows_written (int),
+        error (str, only present if status is "failed").
+    """
+    from datetime import datetime
+
+    def _s(value: Any) -> Any:
+        # Only strings need formula-injection sanitizing (vendor/category/
+        # date text ultimately traces back to untrusted email content) -
+        # numbers pass through untouched.
+        return sanitize_csv_cell(str(value)) if isinstance(value, str) else value
+
+    rows: List[List[Any]] = [
+        ["ReconAI Monthly Reconciliation Report"],
+        [f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}"],
+        [],
+        ["Total spent", report.get("total_spent", 0)],
+        ["Total money in", report.get("total_income", 0)],
+        ["Business spend", report.get("business_total", 0)],
+        ["Personal spend", report.get("personal_total", 0)],
+        ["Untagged spend", report.get("untagged_total", 0)],
+        ["Business money in", report.get("business_income_total", 0)],
+        ["Personal money in", report.get("personal_income_total", 0)],
+        ["Duplicates flagged", report.get("duplicate_count", 0)],
+        ["Missing invoices", report.get("missing_invoice_count", 0)],
+        ["Recurring charges", report.get("recurring_count", 0)],
+        ["GST-eligible total", report.get("gst_eligible_total", 0)],
+        [],
+    ]
+
+    category_breakdown = report.get("category_breakdown", {})
+    category_vendors = report.get("category_vendors", {})
+    rows.append(["Category breakdown"])
+    rows.append(["Category", "Amount", "Vendors"])
+    for cat, amount in sorted(category_breakdown.items(), key=lambda kv: -kv[1]):
+        rows.append([_s(cat), amount, _s(", ".join(category_vendors.get(cat, [])))])
+    rows.append([])
+
+    rows.append(["Subscriptions"])
+    rows.append(["Vendor", "Amount", "Category"])
+    for s in report.get("subscriptions", []):
+        rows.append([_s(s["vendor"]), s["amount"], _s(s["category"])])
+    rows.append([])
+
+    rows.append(["Recurring investments"])
+    rows.append(["Vendor", "Amount", "Category"])
+    for s in report.get("recurring_investments", []):
+        rows.append([_s(s["vendor"]), s["amount"], _s(s["category"])])
+    rows.append([])
+
+    rows.append(["Payments pending"])
+    rows.append(["Vendor", "Amount", "Category", "Date"])
+    for p in report.get("payments_pending", []):
+        rows.append([_s(p["vendor"]), p["amount"], _s(p["category"]), _s(p.get("date", ""))])
+    rows.append([])
+
+    income_breakdown = report.get("income_breakdown", {})
+    if income_breakdown:
+        rows.append(["Money in this period"])
+        rows.append(["Category", "Amount"])
+        for cat, amount in sorted(income_breakdown.items(), key=lambda kv: -kv[1]):
+            rows.append([_s(cat), amount])
+        rows.append([])
+
+    over_budget_categories = report.get("over_budget_categories", [])
+    if over_budget_categories:
+        rows.append(["Over budget"])
+        for cat in over_budget_categories:
+            rows.append([_s(cat)])
+
+    try:
+        service = get_service("sheets", "v4")
+        _ensure_tab_exists(service, sheet_id, DASHBOARD_TAB)
+        # Clear the tab's previous contents first - this is a snapshot of
+        # the latest run, never an accumulating log.
+        service.spreadsheets().values().clear(
+            spreadsheetId=sheet_id, range=f"{DASHBOARD_TAB}!A:Z", body={}
+        ).execute()
+        service.spreadsheets().values().update(
+            spreadsheetId=sheet_id,
+            range=f"{DASHBOARD_TAB}!A1",
+            valueInputOption="USER_ENTERED",
+            body={"values": rows},
+        ).execute()
+        return {"status": "ok", "rows_written": len(rows)}
+    except HttpError as e:
+        return {"status": "failed", "rows_written": 0, "error": str(e)}
