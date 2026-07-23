@@ -16,7 +16,21 @@ Built for freelancers and small business owners in India (Open Track). This audi
 >
 > **Google Sheets *ledger* sync is parked as a future integration**, not deleted — `get_processed_ids`/`append_to_ledger`/`mark_processed`/`query_ledger` still exist in `tools/reconciliation_tools.py` and `tools/reporting_tools.py`, but no agent currently calls them, to cut API calls and setup friction (missing-tab errors, cross-run memory that needs a Sheet to exist). This build is Gmail-in, report-out: nothing is persisted between runs, and every run re-fetches/re-extracts the full date-scoped range. Re-enable by re-wiring those four tools back into `agents.py`.
 >
-> **This is separate from "Save to Sheet"**, which *is* live — the dashboard has an explicit button that writes the current run's numbers to a "Dashboard" tab in a Sheet you paste in, overwriting it each time. It's a one-off snapshot export, not the ledger above, and it's never called automatically.
+> **This is separate from the Sheet auto-export**, which *is* live — paste a Sheet ID in the sidebar and every run automatically writes its numbers to that spreadsheet's first tab, overwriting it each time. It's a one-off snapshot export, not the ledger above, and there's nothing to click — it's not a growing, cross-run memory.
+
+## Features
+
+What's actually live in this build, not a roadmap:
+
+- **Gmail discovery (readonly)** — scans your inbox, excluding Sent/Drafts/Chats, for invoices, receipts, bills, and statements. The OAuth scope requested can never send, delete, or modify anything.
+- **Duplicate, recurring, and budget checks** — exact-math duplicate detection, recurring subscription/investment tagging, budget-overrun flags, and bank-CSV debits with no matching invoice email (missing invoices) — all computed before any totals are shown.
+- **Business vs personal tagging** — every transaction is tagged `business`/`personal`/`unknown` in the same pass, with totals split accordingly. No need for separate accounts or inboxes to get the split (see the note above for why this matters for this audience).
+- **One-click Google Sheets export** — paste a Sheet ID once and every real run auto-writes its report to that Sheet's first tab (overwriting, never appending). Skip the field and nothing is written. Mock/UI-testing runs, and greetings that don't trigger the pipeline, never touch the Sheet either way.
+- **One-click PDF export** — download the full report (metrics, category breakdown, AI-written narrative) as a single print-friendly PDF, generated fresh on each click.
+- **Real, single-click Google sign-in** — a genuine link that opens in a new tab to pick your account, never a silently-blocked popup, and that tab closes itself the moment sign-in finishes.
+- **Smart greeting handling** — a plain "hi" or "hello" gets a short reply describing what ReconAI does, instead of running the full 3-agent pipeline or overwriting your dashboard/Sheet with an empty run.
+- **Guardrails** — readonly Gmail scope, input/output filters, rate limiting, a destructive-action blocklist, and CSV sanitizing are active on every run (see "Guardrails" below).
+- **UI testing mode** — a "Load mock data" button previews the full dashboard styling with zero Gmail/Gemini calls and zero API cost, and never writes to your Sheet.
 
 ## Architecture
 
@@ -47,26 +61,29 @@ Eight layers, all wired as ADK callbacks in `tools/security.py` (see `RECONAI_AR
 7. **`output_filter`** — redacts secret-shaped strings and blocks destructive-sounding output before it reaches the user.
 8. **`rate_limiter`** — per-session token-bucket cap on model calls, fails gracefully rather than raising.
 
-All eight are covered by `tests/test_security.py` (59 tests total across the suite, all passing).
+All eight are covered by `tests/test_security.py` (86 tests total across the suite, all passing).
 
 ## Project structure
 
 ```
 reconai/
 |-- agents.py                 # 3 agents + SequentialAgent + guardrail wiring
-|-- app.py                    # Streamlit UI: ADK Runner, CSV upload, live trace, themed dashboard
+|-- app.py                    # Streamlit UI: ADK Runner, live trace, themed dashboard
 |-- tools/
 |   |-- google_auth.py            # shared OAuth credential loading (Gmail; Sheets scope dormant)
 |   |-- discovery_tools.py        # fetch_invoice_emails, extract_invoice_data, parse_bank_csv,
 |   |                              #   unlock_pdf_attachment
 |   |-- reconciliation_tools.py   # check_duplicates_and_budget (Sheets tools dormant, see note above)
-|   |-- reporting_tools.py        # generate_monthly_report (query_ledger dormant)
+|   |-- reporting_tools.py        # generate_monthly_report, save_report_to_sheet
+|   |-- export_tools.py           # export_report_to_pdf — single-file PDF snapshot of the report
 |   |-- security.py               # the 8 guardrails above
 |-- tests/
 |   |-- test_security.py          # guardrails
 |   |-- test_extraction.py        # email/HTML parsing, Gemini extraction (mocked), CSV parsing
 |   |-- test_reconciliation.py    # dedup/recurring/budget/missing-invoice logic
 |   |-- test_reporting.py         # report sections: totals, subscriptions, investments, pending bills
+|   |-- test_export.py            # PDF export content/structure
+|   |-- test_sheet_export.py      # Sheet auto-export writes to the first tab, overwrites
 |-- mock_data/                # reference JSON snapshots (discovery -> reconciled -> report shape),
 |   |                          #   used for docs and the "Load mock data" button — no real data
 |-- docs/
@@ -94,7 +111,7 @@ reconai/
    ```
    streamlit run app.py
    ```
-   The app itself now handles first-time sign-in: on open, it shows a **"Sign in with Google"** screen and blocks the rest of the UI until you click it and complete the browser consent flow — no separate script to run first. (`test_auth.py` still exists as a standalone way to pre-mint `token.json` before a Cloud Run deploy, since that's a headless environment with no browser to pop open — see "Deployment" below.)
+   The app itself now handles first-time sign-in: on open, it shows a **"Sign in with Google"** screen and blocks the rest of the UI until you click it and complete the browser consent flow — no separate script to run first. It's a real link (opens reliably in a new tab, never blocked by a popup blocker) to pick your account; that tab closes itself automatically the moment sign-in finishes, and the ReconAI tab picks up as already signed in — no manual switching or closing tabs. (`test_auth.py` still exists as a standalone way to pre-mint `token.json` before a Cloud Run deploy, since that's a headless environment with no browser to pop open — see "Deployment" below.)
 
 `credentials.json`, `token.json`, and `.env` are git-ignored and docker-ignored — never commit them.
 
@@ -104,16 +121,17 @@ reconai/
 
 ## Usage
 
-- Optionally fill in a JSON budget and/or upload a bank statement CSV in the sidebar.
+- There's no sidebar upload for a bank statement CSV or a budget anymore — `parse_bank_csv` and the budget-comparison logic in `check_duplicates_and_budget` still exist and work, but neither is exposed as a UI control; the app is Gmail-only from the UI's perspective now.
 - Bank CSV must match the one supported format: columns `Date, Description, Amount, Type`. Other formats fail with a clear error rather than being silently misparsed.
 - Discovery excludes your own Sent/Drafts mail (`-in:sent -in:drafts -in:chats`), scoped to the current calendar month by default — invoices you emailed to someone else won't be misread as ones you received. It deliberately does *not* restrict to `in:inbox`, so receipts that Gmail auto-archived out of your inbox (common for vendor/subscription receipts with a "skip inbox" filter) still get found.
 - Type `Prepare July reconciliation` (or similar) in the chat box to run the full 3-agent pipeline. Watch the live activity trace, then see the report and dashboard below it. Both the chat report and the dashboard read from the exact same `generate_monthly_report` output — they can't disagree with each other.
+- A plain greeting (`hi`, `hello`, `hey`, `good morning`, etc. — matched only when the *entire* message is just a greeting) short-circuits before the pipeline runs: you get a quick reply about what ReconAI does, no agents are invoked, and your existing dashboard/Sheet are left untouched. A message like `hi, prepare July reconciliation` still runs the full pipeline as normal.
 - The report and dashboard are organized as: **where the money went** (category breakdown), **subscriptions you have** (recurring non-investment charges — SaaS etc.), **recurring investments** (SIP/NACH/mutual fund debits), and **payments pending** (bills that were generated/issued but not confirmed paid — e.g. an electricity bill notice — kept out of the spend total until they're actually paid).
 - Duplicate-flagged transactions are excluded from every total (they're the same charge counted twice, not extra spend) but still shown, tagged, in the recent-transactions list so you can review them.
 - Ask follow-up questions ("Why did I spend more this month?") — the Reporting Agent can only answer from this run's own report data; there's no ledger to query across past runs in this build.
 - If Gmail has no invoice/receipt-looking emails, Discovery will legitimately report 0 found — that's correct behavior, not a bug. Send yourself a test email with a subject like "Invoice from Test Vendor" to get a real end-to-end run.
-- **Save to Sheet**: paste a Google Sheet ID (the long ID in its URL) into the sidebar — hover the **ⓘ** next to the field for a walkthrough of creating one and finding the ID — then click **"💾 Save to Sheet"** in the top-right of the page. This writes the current run's numbers to a "Dashboard" tab, creating that tab if it doesn't exist yet — every click overwrites the tab with the latest snapshot, it never appends or accumulates rows. The Sheet just needs to be one your signed-in Google account can edit (e.g. one you created at [sheets.new](https://sheets.new) while signed into that same account).
-- **Export PDF**: click **"📄 Export PDF"** next to "Save to Sheet" to download the full report as a single, print-friendly PDF — the same numbers as the dashboard (never recomputed), organized into clearly headed, bookmarked sections (where it went with a category chart, business vs personal, subscriptions, recurring investments, payments pending, money in this period) so it's easy to jump straight to a section from any PDF viewer's sidebar. If you've chatted with the Reporting Agent this run, its last reply is included as a "Recommendations & notes" appendix at the end. Nothing is uploaded or saved anywhere — it's generated fresh on each click and downloaded straight to your computer.
+- **Auto-export to Sheet**: paste a Google Sheet ID (the long ID in its URL) into the sidebar — hover the **ⓘ** next to the field for a walkthrough of creating one and finding the ID. There's no button: as soon as a Sheet ID is present, every new report auto-writes to that spreadsheet's **first tab** (whatever it's named), overwriting it — never appending or accumulating rows. Leave the field blank and reconciliation works exactly the same, nothing else depends on it. The Sheet just needs to be one your signed-in Google account can edit (e.g. one you created at [sheets.new](https://sheets.new) while signed into that same account). Mock data loaded via **"Load mock data"** is explicitly excluded from this — it's for previewing dashboard styling only and is never written to your Sheet.
+- **Export PDF**: click **"📄 Export PDF"** in the top-right of the page to download the full report as a single, print-friendly PDF — the same numbers as the dashboard (never recomputed), organized into clearly headed, bookmarked sections (where it went with a category chart, business vs personal, subscriptions, recurring investments, payments pending, money in this period) so it's easy to jump straight to a section from any PDF viewer's sidebar. If you've chatted with the Reporting Agent this run, its last reply is included as a "Recommendations & notes" appendix at the end. Nothing is uploaded or saved anywhere — it's generated fresh on each click and downloaded straight to your computer.
 - **Password-protected PDF attachments**: if an invoice email has a locked PDF attached, Discovery reports everything else as normal and then asks you, in the chat reply, for that specific file's password (naming the file and which email it came from). If the email itself already states the password format — common with bank e-statements ("password is the first 4 letters of your name + your DOB in DDMM," "password is your PAN in uppercase") — Discovery reads that and quotes the hint back to you instead of making you dig it up yourself. Just reply with the password in your next message — no special format required, Discovery will match it to the file it just asked about and unlock it via `unlock_pdf_attachment`. The password itself is never written anywhere or repeated back in any reply.
 
 ## Switching to a different Google account
@@ -150,8 +168,7 @@ pytest tests/ -v
 ## Known limitations (by design, for this MVP)
 
 - Single-user, single Google account — no multi-tenancy.
-- Discovery is Gmail-only for now — no Drive search (see the note at the top of this README).
-- One bank CSV format supported (documented in `tools/discovery_tools.py`, `EXPECTED_CSV_COLUMNS`) — not a generic multi-bank parser.
+- Discovery is Gmail-only from the UI now — no Drive search, and the bank-statement CSV uploader has been removed from the sidebar (`parse_bank_csv` still exists and supports one CSV format, documented in `tools/discovery_tools.py`, `EXPECTED_CSV_COLUMNS`, but there's no UI path to it).
 - No persistence between runs — Sheets sync is dormant (see the note at the top of this README), so session state resets on restart and every run re-fetches/re-extracts the full date-scoped range rather than skipping already-seen emails.
 
 ## Future scope

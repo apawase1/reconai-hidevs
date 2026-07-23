@@ -1,16 +1,4 @@
-"""tools/reconciliation_tools.py — Reconciliation Agent toolset.
-
-Per the architecture doc: dedup, missing-invoice check, budget compare, and
-category/recurring/GST tagging happen here. Deterministic math (exact dedup
-matching, exact budget arithmetic) lives in Python, not in an LLM's head —
-the model's job is the judgment calls layered on top of these tool outputs
-(is this *probably* the same subscription, is this *plausibly* GST-eligible),
-not the arithmetic itself (section 8).
-
-Long-term memory (which transactions were already processed) is a
-`_processed_ids` tab in the same Google Sheet — not ADK's MemoryService
-(section 2). get_processed_ids / mark_processed implement that.
-"""
+"""tools/reconciliation_tools.py — Reconciliation Agent toolset: deterministic dedup, missing-invoice, budget, and recurring checks."""
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -22,11 +10,12 @@ from tools.security import sanitize_csv_cell
 
 LEDGER_TAB = "Ledger"
 PROCESSED_IDS_TAB = "_processed_ids"
-DUPLICATE_AMOUNT_TOLERANCE = 0.01  # currency rounding slack
+DUPLICATE_AMOUNT_TOLERANCE = 0.01
 DUPLICATE_DATE_WINDOW_DAYS = 3
 
 
 def _parse_date(value: str) -> Optional[datetime]:
+    """Parses a date string against a fixed list of accepted formats."""
     for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y", "%d-%m-%Y", "%b %d, %Y"):
         try:
             return datetime.strptime(value.strip(), fmt)
@@ -36,6 +25,7 @@ def _parse_date(value: str) -> Optional[datetime]:
 
 
 def _normalize_vendor(vendor: str) -> str:
+    """Lowercases and strips non-alphanumeric characters for vendor-name matching."""
     return "".join(ch.lower() for ch in (vendor or "") if ch.isalnum())
 
 
@@ -44,41 +34,20 @@ def check_duplicates_and_budget(
     bank_transactions: Optional[List[Dict[str, Any]]] = None,
     budget: Optional[Dict[str, float]] = None,
 ) -> Dict[str, Any]:
-    """Runs deterministic dedup, missing-invoice, budget, and recurring
-    checks over a batch of extracted transactions.
-
-    Call this once per Discovery output batch, after extract_invoice_data
-    and (optionally) parse_bank_csv have both run. This does not call an
-    LLM — it's exact matching and arithmetic, not judgment.
+    """Runs deterministic dedup, missing-invoice, budget, and recurring checks over a batch of extracted transactions.
 
     Args:
-        transactions: List of transaction dicts (from extract_invoice_data),
-            each with keys vendor, amount, date, category.
-        bank_transactions: Optional list of bank CSV transaction dicts (from
-            parse_bank_csv) used to flag bank debits with no matching
-            invoice/receipt as missing_invoice.
+        transactions: List of transaction dicts (from extract_invoice_data).
+        bank_transactions: Optional bank CSV transaction dicts (from parse_bank_csv).
         budget: Optional dict mapping category name -> monthly budget amount.
-            If omitted, budget_summary is returned empty and no
-            over_budget flags are set.
 
     Returns:
-        dict with keys: status ("ok"), transactions (input list enriched
-        with is_duplicate, duplicate_of, is_recurring bools), missing_invoices
-        (list of bank_transactions with no matching invoice), budget_summary
-        (dict of category -> {spent, budget, over_budget}).
-
-        Every input field not touched by this function — including
-        payment_status_guess and spend_type_guess from extract_invoice_data
-        — passes straight through into the enriched transactions unchanged,
-        since enrichment is a shallow per-transaction dict copy, not a
-        rebuild. generate_monthly_report is what actually reads
-        spend_type_guess to split totals by business vs personal.
+        dict with keys: status, transactions (enriched with is_duplicate,
+        duplicate_of, is_recurring), missing_invoices, budget_summary.
     """
     enriched = [dict(t) for t in transactions]
 
-    # --- Duplicate detection: same normalized vendor + amount within a
-    # small date window is treated as the same charge seen twice. ---
-    seen_keys = []  # list of (vendor_norm, amount, date_obj, index)
+    seen_keys = []
     for idx, t in enumerate(enriched):
         vendor_norm = _normalize_vendor(t.get("vendor", ""))
         amount = t.get("amount") or 0
@@ -100,8 +69,6 @@ def check_duplicates_and_budget(
         enriched[idx]["duplicate_of"] = duplicate_of
         seen_keys.append((vendor_norm, amount, date_obj, idx))
 
-    # --- Recurring detection: same vendor + amount appearing across >=2
-    # distinct months anywhere in the batch. ---
     vendor_months: Dict[str, set] = {}
     for t in enriched:
         vendor_norm = _normalize_vendor(t.get("vendor", ""))
@@ -117,7 +84,6 @@ def check_duplicates_and_budget(
         key = (vendor_norm, round(float(t.get("amount") or 0), 2))
         t["is_recurring"] = len(vendor_months.get(key, set())) >= 2 or t.get("is_recurring_guess", False)
 
-    # --- Missing invoice: bank debits with no matching invoice/receipt. ---
     missing_invoices = []
     if bank_transactions:
         invoice_keys = {
@@ -136,7 +102,6 @@ def check_duplicates_and_budget(
             if not matched:
                 missing_invoices.append(bt)
 
-    # --- Budget comparison, per category. ---
     budget_summary: Dict[str, Any] = {}
     if budget:
         spent_by_category: Dict[str, float] = {}
@@ -156,23 +121,14 @@ def check_duplicates_and_budget(
 
 
 def append_to_ledger(transactions: List[Dict[str, Any]], sheet_id: str) -> Dict[str, Any]:
-    """Writes reconciled transactions to the Google Sheet ledger.
-
-    Call this after reconciliation is complete, once per batch of
-    transactions — do not call it per individual transaction. Every cell is
-    sanitized against CSV/Sheets formula injection before being written,
-    since the source data ultimately traces back to untrusted email/CSV
-    content.
+    """Writes reconciled transactions to the Google Sheet ledger, sanitizing every cell first.
 
     Args:
-        transactions: List of transaction dicts, each with keys vendor,
-            amount, date, category, is_duplicate, is_recurring,
-            gst_eligible_guess (or gst_eligible).
+        transactions: List of transaction dicts.
         sheet_id: The target Google Sheet's ID.
 
     Returns:
-        dict with keys: status ("ok"/"failed"), rows_written (int),
-        error (str, only present if status is "failed").
+        dict with keys: status, rows_written, error (only if failed).
     """
     if not transactions:
         return {"status": "ok", "rows_written": 0}
@@ -207,15 +163,13 @@ def append_to_ledger(transactions: List[Dict[str, Any]], sheet_id: str) -> Dict[
 
 
 def get_processed_ids(sheet_id: str) -> Dict[str, Any]:
-    """Reads the _processed_ids tab so a re-run doesn't duplicate work
-    already done in a prior run (the cross-run "memory" per section 2).
+    """Reads the _processed_ids tab so a re-run doesn't duplicate work already done.
 
     Args:
         sheet_id: The target Google Sheet's ID.
 
     Returns:
-        dict with keys: status ("ok"/"failed"), ids (list of str),
-        error (str, only present if status is "failed").
+        dict with keys: status, ids, error (only if failed).
     """
     try:
         service = get_service("sheets", "v4")
@@ -226,7 +180,6 @@ def get_processed_ids(sheet_id: str) -> Dict[str, Any]:
         ids = [row[0] for row in rows if row]
         return {"status": "ok", "ids": ids}
     except HttpError as e:
-        # A missing tab isn't fatal — treat as "no ids processed yet".
         if "Unable to parse range" in str(e) or "not found" in str(e).lower():
             return {"status": "ok", "ids": []}
         return {"status": "failed", "ids": [], "error": str(e)}
@@ -235,16 +188,12 @@ def get_processed_ids(sheet_id: str) -> Dict[str, Any]:
 def mark_processed(ids: List[str], sheet_id: str) -> Dict[str, Any]:
     """Appends newly processed source IDs to the _processed_ids tab.
 
-    Call this once per run, after append_to_ledger succeeds, with every
-    source_id that was written — not per individual ID.
-
     Args:
-        ids: List of source_id strings that were just written to the ledger.
+        ids: List of source_id strings just written to the ledger.
         sheet_id: The target Google Sheet's ID.
 
     Returns:
-        dict with keys: status ("ok"/"failed"), ids_written (int),
-        error (str, only present if status is "failed").
+        dict with keys: status, ids_written, error (only if failed).
     """
     if not ids:
         return {"status": "ok", "ids_written": 0}

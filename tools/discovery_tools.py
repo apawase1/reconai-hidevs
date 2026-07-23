@@ -1,29 +1,11 @@
-"""tools/discovery_tools.py — Discovery Agent toolset.
-
-Finds and extracts raw financial evidence from Gmail and a bank CSV.
-
-NOTE: Drive support (fetch_drive_receipts, standalone Drive PDF extraction)
-has been deliberately removed for now to cut Google API call volume and
-Gemini token usage per run — Discovery is Gmail-only until Drive is worth
-the extra credits again. See RECONAI_ARCHITECTURE_ADDENDUM.md section D.
-PDF *attachments on Gmail messages* are still supported (see
-fetch_invoice_emails / unlock_pdf_attachment below) — that's a Gmail-scope
-operation, not a Drive one, so it didn't need to be cut alongside Drive.
-
-Per the architecture doc, Discovery should NOT judge correctness or format
-for humans — it just returns structured evidence with a status field per
-item (section 3's reliability rule: "processed 34 of 36, 2 skipped" beats a
-stack trace). Password-protected PDF attachments follow the same pattern:
-they come back with status "password_required" instead of crashing or
-being silently skipped, so the Discovery Agent can ask the user for the
-password and unlock_pdf_attachment can retry with it.
-"""
+"""tools/discovery_tools.py — Discovery Agent toolset: finds and extracts raw financial evidence from Gmail and a bank CSV."""
 
 import base64
 import io
 import json
 import os
 import re
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -39,49 +21,31 @@ MODEL = os.getenv("EXTRACTION_MODEL", "gemini-3.5-flash")
 
 DEFAULT_KEYWORDS = "invoice OR receipt OR bill OR payment"
 
-# Per-message Gmail detail/attachment fetches in fetch_invoice_emails are
-# I/O-bound (network round trips), not CPU-bound, and were previously done
-# one at a time in a plain for-loop — the single biggest reason Discovery
-# feels slow with more than a handful of matched emails (25 sequential
-# ~request each, plus another sequential request per PDF attachment, adds
-# up fast; the actual Gemini extraction call afterward is already a single
-# batched call, not the bottleneck). Fetched concurrently instead, capped
-# at a modest worker count to stay a good API citizen rather than firing
-# 25+ simultaneous requests at Gmail.
 DISCOVERY_FETCH_WORKERS = int(os.getenv("RECONAI_DISCOVERY_WORKERS", "8"))
+
+_thread_local = threading.local()
+
+
+def _thread_gmail_service():
+    """Returns a Gmail API client cached per worker thread, so a pool of N threads builds the service N times total (once each) instead of once per message."""
+    service = getattr(_thread_local, "gmail_service", None)
+    if service is None:
+        service = get_service("gmail", "v1")
+        _thread_local.gmail_service = service
+    return service
 
 
 def _default_query() -> str:
-    """Scopes the default Gmail search to the current calendar month, and
-    excludes Sent/Drafts/Chats — but does NOT restrict to `in:inbox`.
-
-    Without the date scope, the broad keyword-only query re-matches the same
-    old emails on every run — and each match gets re-sent through the paid
-    extract_invoice_data Gemini call unless the caller also excludes
-    already-processed IDs (see exclude_ids below). Scoping by date is the
-    other half of keeping repeat runs cheap.
-
-    An earlier version of this used `in:inbox`, which fixed Sent items
-    leaking in but also silently dropped any received receipt that isn't
-    sitting in the literal Inbox — e.g. one auto-archived by a Gmail filter
-    (very common for subscription/vendor receipts, which often ship with a
-    "skip the inbox, apply label" rule). That regression is why receipts
-    that used to show up (e.g. an Anthropic receipt) stopped matching.
-    `-in:sent -in:drafts -in:chats` gets the same "don't count my own
-    outgoing mail as a received invoice" fix without excluding legitimately
-    received-but-archived mail.
-    """
+    """Builds the default Gmail search: keyword match scoped to the current month, excluding Sent/Drafts/Chats."""
     first_of_month = datetime.now().replace(day=1).strftime("%Y/%m/%d")
     return f"({DEFAULT_KEYWORDS}) after:{first_of_month} -in:sent -in:drafts -in:chats"
 
-# One bank's CSV export format, hardcoded and documented per section 3 —
-# not a generic multi-bank parser. Adjust these column names to match the
-# bank you actually test against; fail loudly on mismatch rather than
-# silently misparsing.
+
 EXPECTED_CSV_COLUMNS = ["Date", "Description", "Amount", "Type"]
 
 
 def _strip_html(html: str) -> str:
+    """Converts an HTML email body to plain text."""
     text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html, flags=re.S | re.I)
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", text)
@@ -91,12 +55,12 @@ def _strip_html(html: str) -> str:
 
 
 def _decode_part_body(data: str) -> str:
+    """Decodes a base64url-encoded Gmail message part body."""
     return base64.urlsafe_b64decode(data.encode("utf-8")).decode("utf-8", errors="replace")
 
 
 def _extract_email_body(payload: dict) -> str:
-    """Prefers plain text; falls back to stripped HTML per section 3's
-    known-failure-mode note (styled marketing-style receipts extract worse)."""
+    """Extracts an email's text content, preferring plain text and falling back to stripped HTML."""
     plain, html = None, None
 
     def walk(part):
@@ -122,19 +86,7 @@ def _extract_email_body(payload: dict) -> str:
 
 
 def _find_pdf_attachments(payload: dict) -> List[Dict[str, str]]:
-    """Walks a Gmail message payload looking for PDF attachment parts.
-
-    Matches on filename suffix OR mimeType — some senders (several banks
-    included) attach a PDF with a filename that doesn't end in ".pdf" (no
-    extension at all, or a generic name like "statement" or "Attachment"),
-    which a suffix-only check would silently miss entirely — not even
-    reported as "failed", just invisible, with no signal to the user that
-    anything was there at all. Checking mimeType == "application/pdf" as a
-    second path catches those too.
-
-    Returns a list of dicts with filename and attachment_id — not the PDF
-    bytes themselves, since those need a separate attachments().get() call.
-    """
+    """Walks a Gmail message payload for PDF attachment parts, matching on filename suffix or mimeType."""
     found = []
 
     def walk(part):
@@ -155,46 +107,18 @@ def _find_pdf_attachments(payload: dict) -> List[Dict[str, str]]:
 
 
 def _extract_pdf_text(raw_bytes: bytes, password: Optional[str] = None) -> Dict[str, Any]:
-    """Extracts text from a PDF's raw bytes, handling password protection
-    explicitly rather than letting it crash the run.
-
-    Returns:
-        dict with keys: status ("ok"/"password_required"/"failed"),
-        text (str, only meaningful if status is "ok"),
-        error (str, only present if status is "failed").
-    """
-    from pdfminer.pdfdocument import PDFEncryptionError, PDFPasswordIncorrect  # noqa: F401 — PDFPasswordIncorrect kept for clarity/back-compat
+    """Extracts text from a PDF's raw bytes, returning a password_required status instead of crashing."""
+    from pdfminer.pdfdocument import PDFEncryptionError
 
     def _is_password_error(exc: Exception) -> bool:
-        """True if exc IS (or WRAPS) a pdfminer encryption-related error.
-
-        pdfplumber >=0.11 catches pdfminer's exceptions internally and
-        re-raises them wrapped in its own pdfplumber.utils.exceptions.
-        PdfminerException(original_exc) — so a bare `except
-        PDFPasswordIncorrect` never actually catches it in practice
-        (verified directly: the real exception's type is
-        PdfminerException, with the original sitting in its .args[0], not
-        as __cause__).
-
-        Checked against PDFEncryptionError (the parent class) rather than
-        only its narrower subclass PDFPasswordIncorrect: real-world locked
-        PDFs — bank statements especially — don't all use the same
-        encryption scheme, and pdfminer raises PDFEncryptionError for
-        encryption-related failures more broadly (e.g. an encryption
-        revision/algorithm it can't fully negotiate without a password),
-        not only the exact "wrong password for a scheme I recognize" case.
-        Matching only PDFPasswordIncorrect was too narrow and let some
-        real locked PDFs fall through to a generic "failed" status —
-        meaning Discovery silently moved on instead of ever asking for a
-        password.
-        """
+        """True if exc is or wraps a pdfminer encryption-related error."""
         if isinstance(exc, PDFEncryptionError):
             return True
         return any(isinstance(a, PDFEncryptionError) for a in getattr(exc, "args", ()))
 
     try:
         pdf = pdfplumber.open(io.BytesIO(raw_bytes), password=password or "")
-    except Exception as e:  # noqa: BLE001 — opening must not crash the pipeline
+    except Exception as e:  # noqa: BLE001
         if _is_password_error(e):
             return {"status": "password_required", "text": "", "error": "PDF is password-protected."}
         return {"status": "failed", "text": "", "error": str(e)}
@@ -204,19 +128,14 @@ def _extract_pdf_text(raw_bytes: bytes, password: Optional[str] = None) -> Dict[
             text_chunks = [page.extract_text() or "" for page in pdf.pages]
         text = "\n".join(text_chunks)
         if not text.strip():
-            # Scanned/image-only PDF — section 3's known caveat, not a
-            # password problem. Skip gracefully rather than crash.
             return {"status": "failed", "text": "", "error": "No extractable text (likely a scanned/image-only PDF)."}
         return {"status": "ok", "text": text}
-    except Exception as e:  # noqa: BLE001 — page extraction must not crash the pipeline
-        # The file opened fine, so whatever this is, it's NOT a password
-        # issue — a malformed content stream, unsupported filter, etc.
-        # Keep this genuinely distinct from the password_required path
-        # above instead of lumping every failure into one bucket.
+    except Exception as e:  # noqa: BLE001
         return {"status": "failed", "text": "", "error": str(e)}
 
 
 def _fetch_attachment_bytes(service, message_id: str, attachment_id: str) -> bytes:
+    """Fetches and decodes one Gmail attachment's raw bytes."""
     attachment = service.users().messages().attachments().get(
         userId="me", messageId=message_id, id=attachment_id
     ).execute()
@@ -224,27 +143,15 @@ def _fetch_attachment_bytes(service, message_id: str, attachment_id: str) -> byt
 
 
 def unlock_pdf_attachment(message_id: str, attachment_id: str, password: str) -> Dict[str, Any]:
-    """Retries extracting text from a specific Gmail PDF attachment using a
-    user-supplied password, after fetch_invoice_emails reported it as
-    password_required.
-
-    Call this only after the user has actually supplied a password in
-    response to being asked — never guess or reuse a password from a
-    different attachment. Do not include the password in your reply to the
-    user or write it anywhere; only the extracted text matters downstream.
+    """Retries extracting text from a specific Gmail PDF attachment using a user-supplied password.
 
     Args:
-        message_id: The Gmail message ID the attachment belongs to (from
-            fetch_invoice_emails's per-email "id", paired with the
-            attachment's attachment_id from that email's "attachments" list).
+        message_id: The Gmail message ID the attachment belongs to.
         attachment_id: The attachment's ID within that message.
         password: The password to try.
 
     Returns:
-        dict with keys: status ("ok"/"password_required"/"failed"),
-        text (str, only meaningful if status is "ok" — the recovered PDF
-        text, ready to fold into extract_invoice_data's item batch),
-        error (str, only present if status is "failed" or "password_required").
+        dict with keys: status ("ok"/"password_required"/"failed"), text, error.
     """
     try:
         service = get_service("gmail", "v1")
@@ -259,24 +166,9 @@ def unlock_pdf_attachment(message_id: str, attachment_id: str, password: str) ->
 
 
 def _fetch_and_process_message(message_id: str):
-    """Fetches one Gmail message's full detail, walks its PDF attachments,
-    and extracts everything fetch_invoice_emails needs for that message —
-    pulled out into its own function so fetch_invoice_emails can run it
-    concurrently across messages via a thread pool instead of one message
-    at a time.
-
-    Builds its OWN service instance (get_service("gmail", "v1")) rather
-    than reusing one shared across threads: googleapiclient's underlying
-    httplib2 client isn't guaranteed thread-safe for concurrent requests,
-    and build() itself is a fast local call with no network round trip
-    (confirmed: ~1ms), so this is cheap insurance, not a real cost.
-
-    Returns a (email_dict_or_None, locked_attachments_list) tuple. Never
-    raises HttpError itself — a None email means "skip this one", mirroring
-    the same behavior the old sequential loop had for a failed detail fetch.
-    """
+    """Fetches one Gmail message's full detail and PDF attachments; run concurrently by fetch_invoice_emails."""
     try:
-        service = get_service("gmail", "v1")
+        service = _thread_gmail_service()
         msg_data = service.users().messages().get(
             userId="me", id=message_id, format="full"
         ).execute()
@@ -323,7 +215,7 @@ def _fetch_and_process_message(message_id: str):
         "subject": subject,
         "sender": sender,
         "date": date,
-        "body_text": body_text[:8000],  # cap per-item size, mirrors input_filter's cap
+        "body_text": body_text[:8000],
         "attachments": attachments,
     }
     return email, locked_attachments
@@ -334,46 +226,20 @@ def fetch_invoice_emails(
     max_results: int = 25,
     exclude_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Searches Gmail (readonly) for invoice/receipt-like emails and extracts
-    their raw text content.
-
-    Call this once per Discovery run, not per email — it batches the list +
-    get calls internally and returns everything found in one call. Call
-    get_processed_ids first and pass its result as exclude_ids so
-    already-reconciled emails are skipped here, before they'd otherwise cost
-    a Gmail detail fetch AND a slice of the paid extract_invoice_data call —
-    re-running the same reconciliation request repeatedly should not re-pay
-    for emails you've already processed.
+    """Searches Gmail for invoice/receipt-like emails and extracts their raw text content, concurrently.
 
     Args:
-        query: Gmail search query. Defaults to a broad invoice/receipt/bill
-            keyword match scoped to the current calendar month (via an
-            after: filter) — override with explicit after:/before: bounds
-            if the user asked for a different month or period.
+        query: Gmail search query, defaults to the current-month keyword match.
         max_results: Maximum number of emails to fetch.
-        exclude_ids: Gmail message IDs to skip (typically the ids returned
-            by get_processed_ids) — these are filtered out before any
-            per-message detail fetch happens, not just before extraction.
+        exclude_ids: Gmail message IDs to skip (typically from get_processed_ids).
 
     Returns:
-        dict with keys: status ("ok"/"partial"/"failed"), count (int),
-        emails (list of dicts with id, subject, sender, date, body_text,
-        attachments — a list of dicts with filename, attachment_id, status
-        ("ok"/"password_required"/"failed"), and text if status is "ok"),
-        locked_attachments (list of dicts with message_id, attachment_id,
-        filename, subject — a flat summary of every password-protected PDF
-        found, for the agent to relay to the user in one place),
-        skipped_already_processed (int), error (str, only if status is "failed").
+        dict with keys: status, count, emails, locked_attachments, skipped,
+        skipped_already_processed, error (only if failed).
     """
     if query is None:
         query = _default_query()
     elif "in:sent" not in query and "-in:sent" not in query:
-        # Same Sent-exclusion safety net as _default_query — a caller-supplied
-        # query (e.g. the agent narrowing to a specific month) shouldn't
-        # accidentally start matching the user's own outgoing mail just
-        # because it forgot to say so explicitly. Deliberately NOT `in:inbox`
-        # here — that also drops legitimately received mail that's been
-        # archived out of the inbox (see _default_query's docstring).
         query = f"({query}) -in:sent -in:drafts -in:chats"
     exclude_ids = set(exclude_ids or [])
 
@@ -403,11 +269,6 @@ def fetch_invoice_emails(
                         emails_by_id[msg_id] = email
                         locked_attachments.extend(locked)
 
-        # Reassemble in the original Gmail list order, even though the
-        # fetches above completed in whatever order the thread pool
-        # finished them — downstream logic doesn't require Gmail's own
-        # ordering, but a stable, predictable order is still nicer than
-        # "whichever request happened to come back first".
         emails = [emails_by_id[m["id"]] for m in messages if m["id"] in emails_by_id]
 
         status = "ok" if skipped == 0 else "partial"
@@ -447,28 +308,13 @@ EXTRACTION_SCHEMA = {
 
 
 def extract_invoice_data(items: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Extracts structured transaction data from a batch of raw email text
-    using one batched Gemini call with JSON-array structured output.
-
-    Call this once per Discovery run with ALL fetched emails combined — do
-    not call it per individual item (section 8: batch, don't loop, to
-    control latency and cost).
+    """Extracts structured transaction data from a batch of raw email text using one batched Gemini call.
 
     Args:
-        items: List of dicts, each with at minimum keys 'id' (or
-            'source_id') and 'body_text' (or 'text') — the raw content to
-            extract from. Typically the emails from fetch_invoice_emails,
-            plus one item per successfully-unlocked PDF attachment (build
-            its source_id as "{message_id}:{attachment_id}" and its 'text'
-            from the attachment's recovered text, so it's tracked separately
-            from its parent email's body).
+        items: List of dicts, each with at minimum 'id'/'source_id' and 'body_text'/'text'.
 
     Returns:
-        dict with keys: status ("ok"/"partial"/"failed"), count (int),
-        transactions (list of dicts: source_id, vendor, amount, date,
-        category, is_recurring_guess, gst_eligible_guess,
-        payment_status_guess, spend_type_guess, status), error (str, only
-        present if status is "failed").
+        dict with keys: status, count, transactions, error (only if failed).
     """
     if not items:
         return {"status": "ok", "count": 0, "transactions": []}
@@ -598,26 +444,18 @@ def extract_invoice_data(items: List[Dict[str, Any]]) -> Dict[str, Any]:
         failed = sum(1 for t in transactions if t.get("status") == "failed")
         status = "ok" if failed == 0 else "partial"
         return {"status": status, "count": len(transactions), "transactions": transactions}
-    except (json.JSONDecodeError, Exception) as e:  # noqa: BLE001 — extraction must not crash the pipeline
+    except (json.JSONDecodeError, Exception) as e:  # noqa: BLE001
         return {"status": "failed", "count": 0, "transactions": [], "error": str(e)}
 
 
 def parse_bank_csv(file_path: str) -> Dict[str, Any]:
-    """Parses a bank statement CSV in the one supported format
-    (columns: Date, Description, Amount, Type) into transaction dicts.
-
-    Does not attempt to auto-detect other bank formats — fails with a clear
-    error message on column mismatch rather than silently misparsing
-    (section 3's explicit rule for this source).
+    """Parses a bank statement CSV in the one supported format (Date, Description, Amount, Type).
 
     Args:
         file_path: Path to the uploaded CSV file.
 
     Returns:
-        dict with keys: status ("ok"/"failed"), count (int),
-        transactions (list of dicts: date, description, amount, type — all
-        string cells passed through sanitize_csv_cell before use),
-        error (str, only present if status is "failed").
+        dict with keys: status, count, transactions, error (only if failed).
     """
     try:
         df = pd.read_csv(file_path)
@@ -643,7 +481,7 @@ def parse_bank_csv(file_path: str) -> Dict[str, Any]:
         transactions.append({
             "date": sanitize_csv_cell(str(row["Date"])),
             "description": sanitize_csv_cell(str(row["Description"])),
-            "amount": row["Amount"],  # numeric, not subject to formula injection
+            "amount": row["Amount"],
             "type": sanitize_csv_cell(str(row["Type"])),
         })
 

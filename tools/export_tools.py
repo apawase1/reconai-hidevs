@@ -1,21 +1,4 @@
-"""tools/export_tools.py — PDF export of the reconciliation report.
-
-Builds a single-file, print-friendly PDF snapshot of the exact same report
-dict generate_monthly_report returns (the same dict the Streamlit dashboard
-renders from) — so the export can never disagree with the dashboard, since
-neither one re-derives a number, they both just re-present report's keys.
-
-Optionally also includes the Reporting Agent's own last chat reply
-(narrative_markdown) as a "Recommendations & notes" appendix, so a user who
-only ever used the dashboard (never the chat) still gets a complete export,
-and a user who did chat gets the plain-English narrative too — without
-duplicating the structured tables above it.
-
-Uses reportlab (already a frozen dependency in requirements.txt — see the
-"test-only" comments there, now also used at runtime) for both the page
-layout (platypus flowables) and the category pie chart (reportlab.graphics
-vector charts, drawn natively — no extra image-rendering library needed).
-"""
+"""tools/export_tools.py — builds a single-file, print-friendly PDF snapshot of the reconciliation report."""
 
 import re
 from datetime import datetime
@@ -23,7 +6,7 @@ from io import BytesIO
 from typing import Any, Dict, List, Optional
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
@@ -42,10 +25,6 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-# Print-friendly palette — deliberately independent of the app's own
-# dark/light UI toggle (SURFACE/TEAL/etc. in app.py). A PDF is a standalone
-# document someone might print, so pick colors that read well on paper
-# rather than reusing the dark-mode neon accents.
 _TEAL = colors.HexColor("#0891B2")
 _PURPLE = colors.HexColor("#4F46E5")
 _CORAL = colors.HexColor("#DC2626")
@@ -64,11 +43,7 @@ _PIE_PALETTE = [
 
 
 class _Bookmark(Flowable):
-    """Invisible flowable that registers a native PDF outline entry at its
-    position in the document. This gives every mainstream viewer (Acrobat,
-    macOS Preview, Chrome's built-in PDF viewer) a clickable sidebar table
-    of contents for free — the concrete answer to "must be very easy to
-    navigate" — without pulling in any extra library beyond reportlab."""
+    """Invisible flowable that registers a native PDF outline entry at its position in the document."""
 
     def __init__(self, key: str, title: str, level: int = 0):
         Flowable.__init__(self)
@@ -85,6 +60,7 @@ class _Bookmark(Flowable):
 
 
 def _styles() -> Dict[str, ParagraphStyle]:
+    """Returns the named ParagraphStyle set used throughout the PDF."""
     base = getSampleStyleSheet()
     return {
         "title": ParagraphStyle("ReconTitle", parent=base["Title"], textColor=_INK, fontSize=22, spaceAfter=2, alignment=TA_LEFT),
@@ -104,19 +80,14 @@ def _styles() -> Dict[str, ParagraphStyle]:
 
 
 def _md_inline_to_rl(text: str) -> str:
-    """Escapes XML special characters, then re-applies **bold** as reportlab's
-    <b> tag — the only inline markdown the Reporting Agent's narrative and
-    summary_markdown actually use."""
+    """Escapes XML special characters and converts **bold** to reportlab's <b> tag."""
     text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
     return text
 
 
 def _narrative_to_flowables(markdown_text: str, styles: Dict[str, ParagraphStyle], bookmark_prefix: str) -> List[Any]:
-    """Converts the small, consistent markdown subset the Reporting Agent
-    actually produces (# / ## headings, - bullets, **bold**, blank lines)
-    into flowables. Not a general markdown parser — deliberately scoped to
-    what this codebase's own generated text uses."""
+    """Converts the Reporting Agent's small markdown subset (headings/bullets/bold) into flowables."""
     flowables: List[Any] = []
     bookmark_count = 0
     for raw_line in markdown_text.splitlines():
@@ -140,6 +111,7 @@ def _narrative_to_flowables(markdown_text: str, styles: Dict[str, ParagraphStyle
 
 
 def _kpi_grid(report: Dict[str, Any], transaction_count: int, styles: Dict[str, ParagraphStyle]) -> Table:
+    """Builds the top-of-page KPI summary table."""
     def cell(label: str, value: str) -> List[Any]:
         return [Paragraph(label, styles["kpi_label"]), Paragraph(value, styles["kpi_value"])]
 
@@ -169,9 +141,7 @@ def _kpi_grid(report: Dict[str, Any], transaction_count: int, styles: Dict[str, 
 
 
 def _category_pie(category_breakdown: Dict[str, float]) -> Optional[Drawing]:
-    """Native vector pie chart via reportlab.graphics — mirrors the
-    dashboard's donut chart without needing kaleido/matplotlib as an extra
-    image-rendering dependency."""
+    """Builds a native vector pie chart (reportlab.graphics) of the category breakdown."""
     if not category_breakdown:
         return None
     items = sorted(category_breakdown.items(), key=lambda kv: -kv[1])[:8]
@@ -215,6 +185,7 @@ def _simple_table(
     styles: Dict[str, ParagraphStyle],
     header_color=_TEAL,
 ) -> Table:
+    """Builds a styled, zebra-striped reportlab Table from headers and rows."""
     header_row = [Paragraph(h, styles["table_header"]) for h in headers]
     body_rows = [[Paragraph(str(cell), styles["table_cell"]) for cell in row] for row in rows]
     table = Table([header_row] + body_rows, colWidths=col_widths, hAlign="LEFT", repeatRows=1)
@@ -243,9 +214,7 @@ def _section(
     body: List[Any],
     empty_message: Optional[str] = None,
 ) -> None:
-    """Appends a bookmarked section heading plus either the given body
-    flowables or an empty_message placeholder — used consistently for every
-    section so nothing is silently skipped without explanation."""
+    """Appends a bookmarked section heading plus its body flowables or an empty_message placeholder."""
     section_flowables: List[Any] = [
         _Bookmark(key, title, level=0),
         Paragraph(title, styles["h2"]),
@@ -266,23 +235,7 @@ def export_report_to_pdf(
     narrative_markdown: Optional[str] = None,
     generated_for: Optional[str] = None,
 ) -> bytes:
-    """Builds the full reconciliation report + dashboard as a single PDF.
-
-    Args:
-        report: The dict returned by generate_monthly_report — every figure
-            in the PDF is read straight from this, nothing is recomputed.
-        transaction_count: Total transaction count (including duplicates),
-            for the "Transactions" KPI — pass len(reconciled_data["transactions"]).
-        narrative_markdown: Optional last Reporting Agent chat reply, shown
-            as a "Recommendations & notes" appendix. Omit if the user never
-            chatted — the structured sections above still cover everything
-            generate_monthly_report computed.
-        generated_for: Optional label (e.g. the signed-in Gmail address)
-            shown under the title.
-
-    Returns:
-        The PDF file's raw bytes, ready for st.download_button.
-    """
+    """Builds the full reconciliation report + dashboard as a single bookmarked PDF and returns its bytes."""
     styles = _styles()
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -297,7 +250,6 @@ def export_report_to_pdf(
 
     flowables: List[Any] = []
 
-    # --- Cover / header ---
     flowables.append(Paragraph("ReconAI — Reconciliation Report", styles["title"]))
     subtitle_bits = [f"Generated {datetime.now().strftime('%d %b %Y, %H:%M')}"]
     if generated_for:
@@ -306,7 +258,6 @@ def export_report_to_pdf(
     flowables.append(_kpi_grid(report, transaction_count, styles))
     flowables.append(Spacer(1, 14))
 
-    # --- Where it went (category breakdown) ---
     category_breakdown = report.get("category_breakdown") or {}
     category_vendors = report.get("category_vendors") or {}
     body: List[Any] = []
@@ -327,7 +278,6 @@ def export_report_to_pdf(
         ))
     _section(flowables, "cat", "Where it went", styles, body, "No categorized spend this period.")
 
-    # --- Business vs personal ---
     business_total = report.get("business_total", 0)
     personal_total = report.get("personal_total", 0)
     untagged_total = report.get("untagged_total", 0)
@@ -346,7 +296,6 @@ def export_report_to_pdf(
         body = [_simple_table(["Split", "Amount"], rows, [10 * cm, 5.6 * cm], styles, header_color=_PURPLE)]
         _section(flowables, "bizperso", "Business vs personal", styles, body)
 
-    # --- Subscriptions ---
     subscriptions = report.get("subscriptions") or []
     body = []
     if subscriptions:
@@ -354,7 +303,6 @@ def export_report_to_pdf(
         body = [_simple_table(["Vendor", "Category", "Amount"], rows, [7 * cm, 4.6 * cm, 4 * cm], styles)]
     _section(flowables, "subs", "Subscriptions", styles, body, "None detected this period.")
 
-    # --- Recurring investments ---
     recurring_investments = report.get("recurring_investments") or []
     body = []
     if recurring_investments:
@@ -362,7 +310,6 @@ def export_report_to_pdf(
         body = [_simple_table(["Vendor", "Category", "Amount"], rows, [7 * cm, 4.6 * cm, 4 * cm], styles)]
     _section(flowables, "invest", "Recurring investments", styles, body, "None detected this period.")
 
-    # --- Payments pending ---
     payments_pending = report.get("payments_pending") or []
     if payments_pending:
         rows = [[p["vendor"], p["category"], p.get("date", ""), f"{p['amount']:,.2f}"] for p in payments_pending]
@@ -372,7 +319,6 @@ def export_report_to_pdf(
         )]
         _section(flowables, "pending", "Payments pending (not yet paid, not in total spent)", styles, body)
 
-    # --- Money in this period ---
     income_breakdown = report.get("income_breakdown") or {}
     if income_breakdown:
         rows = [[cat, f"+{amount:,.2f}"] for cat, amount in sorted(income_breakdown.items(), key=lambda kv: -kv[1])]
@@ -383,13 +329,11 @@ def export_report_to_pdf(
             styles, body,
         )
 
-    # --- Over budget ---
     over_budget_categories = report.get("over_budget_categories") or []
     if over_budget_categories:
         body = [Paragraph("&bull;&nbsp;&nbsp;" + _md_inline_to_rl(cat), styles["bullet"]) for cat in over_budget_categories]
         _section(flowables, "budget", "Over budget", styles, body)
 
-    # --- Recommendations & notes (only if the user actually chatted) ---
     if narrative_markdown and narrative_markdown.strip():
         flowables.append(PageBreak())
         flowables.append(_Bookmark("notes", "Recommendations & notes", level=0))

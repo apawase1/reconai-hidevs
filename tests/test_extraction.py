@@ -8,8 +8,6 @@ import json
 from datetime import datetime
 from types import SimpleNamespace
 
-import pytest
-
 from tools.discovery_tools import (
     EXPECTED_CSV_COLUMNS,
     EXTRACTION_SCHEMA,

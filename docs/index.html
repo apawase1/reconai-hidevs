@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +8,7 @@
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Share+Tech+Mono&display=swap');
 
-  :root[data-theme="dark"] {
+  :root {
     --bg: #040A14;
     --surface: #081726;
     --surface-alt: #0C1F33;
@@ -25,24 +25,6 @@
     --accent-rgb: 34, 211, 238;
     --accent2-rgb: 59, 130, 246;
     --grid-opacity: 0.025;
-  }
-  :root[data-theme="light"] {
-    --bg: #F3F6FB;
-    --surface: #FFFFFF;
-    --surface-alt: #EEF2F8;
-    --border: rgba(15, 23, 42, 0.10);
-    --border-glow: rgba(37, 99, 235, 0.45);
-    --text-primary: #0F1B2D;
-    --text-muted: #64748B;
-    --teal: #0891B2;
-    --purple: #4F46E5;
-    --coral: #DC2626;
-    --amber: #0284C7;
-    --glow-cyan: 0 2px 10px rgba(37, 99, 235, 0.16);
-    --glow-cyan-soft: 0 1px 8px rgba(15, 23, 42, 0.07);
-    --accent-rgb: 37, 99, 235;
-    --accent2-rgb: 37, 99, 235;
-    --grid-opacity: 0;
   }
 
   * { box-sizing: border-box; }
@@ -84,13 +66,6 @@
   .recon-title { font-family: 'Orbitron', sans-serif; font-size: 21px; font-weight: 700; letter-spacing: 0.04em; margin: 0; }
   .recon-subtitle { font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0; display: flex; align-items: center; gap: 6px; }
   .recon-live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); }
-  .theme-btn {
-    background: var(--surface-alt); color: var(--teal); border: 1px solid var(--border-glow);
-    border-radius: 8px; padding: 8px 14px; font-family: 'Share Tech Mono', monospace;
-    font-size: 13px; cursor: pointer; letter-spacing: 0.04em;
-  }
-  .theme-btn:hover { box-shadow: var(--glow-cyan); }
-
   .chat-bubble {
     background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
     box-shadow: var(--glow-cyan-soft); padding: 14px 18px; margin-bottom: 14px; font-size: 14px;
@@ -159,6 +134,29 @@
   .footer-note { text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 24px; }
   a { color: var(--teal); }
 
+  .current-features-panel {
+    background: linear-gradient(135deg, var(--surface-alt), var(--surface));
+    border: 2px solid var(--teal);
+    border-radius: 16px;
+    padding: 26px 26px 22px;
+    margin: 28px 0 14px;
+    box-shadow: 0 0 28px color-mix(in srgb, var(--teal) 22%, transparent);
+  }
+  .current-features-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 23px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: var(--teal);
+    margin: 0 0 8px 0;
+  }
+  .current-features-sub { font-size: 13px; color: var(--text-muted); margin: 0 0 18px 0; line-height: 1.6; max-width: 760px; }
+  .current-features-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 700px) { .current-features-grid { grid-template-columns: 1fr; } }
+  .current-feature-card { background: var(--surface); border: 1px solid var(--border-glow); border-radius: 12px; padding: 16px 18px; }
+  .current-feature-card-title { font-size: 15px; font-weight: 700; margin: 0 0 6px 0; color: var(--text-primary); }
+  .current-feature-card p { font-size: 12.5px; color: var(--text-muted); margin: 0; line-height: 1.55; }
+
   .future-scope-panel {
     background: linear-gradient(135deg, var(--surface-alt), var(--surface));
     border: 2px solid var(--amber);
@@ -196,7 +194,6 @@
         <p class="recon-subtitle"><span class="recon-live-dot"></span>Discovery &rarr; Reconciliation &rarr; Reporting &middot; Google ADK</p>
       </div>
     </div>
-    <button class="theme-btn" onclick="toggleTheme()" id="themeBtn">☀️ Light</button>
   </div>
 
   <p style="font-size:13px; color:var(--text-muted); margin:-10px 0 18px 0; line-height:1.5;">
@@ -209,95 +206,99 @@
   <div class="chat-panel">
     <div id="chatLog"></div>
     <div class="chat-input-row">
-      <input type="text" id="chatInput" class="chat-input-field" placeholder='e.g. "Prepare July reconciliation" or ask a question about your ledger' autocomplete="off">
+      <input type="text" id="chatInput" class="chat-input-field" placeholder='Send anything to try it out.' autocomplete="off">
       <button id="sendBtn" class="chat-send-btn">Send</button>
     </div>
   </div>
 
   <template id="reportTemplate">
     <h2>July 2026 Reconciliation Report</h2>
-    <p><b>Total spent:</b> 98,673.00 &middot; <b>Transactions processed:</b> 25 &middot; <b>Duplicates flagged (excluded):</b> 1 &middot; <b>Missing invoices:</b> 1 &middot; <b>Recurring charges:</b> 11 &middot; <b>GST-eligible total:</b> 2,999.00</p>
+    <p><b>Total spent:</b> 499,717.00 &middot; <b>Transactions processed:</b> 34 &middot; <b>Duplicates flagged (excluded):</b> 1 &middot; <b>Missing invoices:</b> 0 &middot; <b>Recurring charges:</b> 15 &middot; <b>GST-eligible total:</b> 236,773.00</p>
 
     <h3>Where it went (by category)</h3>
     <ul>
-      <li><b>Investment:</b> 47,500.00 (48%) — SIP Investment, NACH Mutual Fund SIP</li>
-      <li><b>Rent:</b> 20,000.00 (20%) — Landlord - Dom's Residence</li>
-      <li><b>Stock:</b> 12,000.00 (12%) — Zerodha</li>
-      <li><b>Recurring Deposit:</b> 5,000.00 (5%) — Post Office RD</li>
-      <li><b>Groceries:</b> 3,200.00 (3%) — BigBasket</li>
-      <li><b>SaaS:</b> 2,999.00 (3%) — Anthropic PBC, Google Cloud Platform</li>
-      <li><b>Shopping:</b> 2,949.00 (3%) — Amazon, Frame Kro</li>
-      <li><b>Gold:</b> 2,500.00 (3%) — SafeGold</li>
-      <li><b>Subscriptions:</b> 1,366.00 (1%) — Netflix, Disney+ Hotstar, Amazon Prime, Spotify</li>
-      <li><b>Food:</b> 999.00 (1%) — Sri Krishna Sagar, Indira Priyadarshini</li>
-      <li><b>Transfer:</b> 160.00 (0%) — q635075112@ybl, q958687424@ybl</li>
+      <li><b>Equipment:</b> 185,000.00 (37%) — Espresso Equipment India</li>
+      <li><b>Transfer:</b> 124,450.00 (25%) — HDFC Bank, swishwallet.hyperpg@axb</li>
+      <li><b>Rent:</b> 55,000.00 (11%) — Property Owner - Commercial Space, Dom's Residence Property Management</li>
+      <li><b>Payroll:</b> 54,000.00 (11%) — RazorpayX Payroll</li>
+      <li><b>Investment:</b> 44,200.00 (9%) — SafeGold, Zerodha, Axis Mutual Fund, India Post Payments Bank</li>
+      <li><b>GST Payment:</b> 12,400.00 (2%) — GST Portal</li>
+      <li><b>Subscriptions:</b> 9,639.00 (2%) — Namecheap, Adobe Inc., Petpooja, Netflix, Amazon Prime, Spotify, Disney+ Hotstar, Anthropic PBC</li>
+      <li><b>Vendor Payment:</b> 8,500.00 (2%) — Coffee Bean Co.</li>
+      <li><b>Groceries:</b> 3,579.00 (1%) — BLINK COMMERCE PVT LTD, BigBasket</li>
+      <li><b>Shopping:</b> 2,949.00 (1%) — Frame Kro, Amazon.in</li>
     </ul>
 
     <h3>Subscriptions you have</h3>
     <ul>
-      <li><b>Anthropic PBC:</b> 1,899.00 (SaaS)</li>
-      <li><b>Google Cloud Platform:</b> 1,100.00 (SaaS)</li>
+      <li><b>Namecheap:</b> 3,200.00 (Subscriptions)</li>
+      <li><b>Anthropic PBC:</b> 1,899.00 (Subscriptions)</li>
+      <li><b>Adobe Inc.:</b> 1,675.00 (Subscriptions)</li>
+      <li><b>Petpooja:</b> 1,499.00 (Subscriptions)</li>
       <li><b>Netflix:</b> 649.00 (Subscriptions)</li>
-      <li><b>Disney+ Hotstar:</b> 299.00 (Subscriptions)</li>
       <li><b>Amazon Prime:</b> 299.00 (Subscriptions)</li>
+      <li><b>Disney+ Hotstar:</b> 299.00 (Subscriptions)</li>
       <li><b>Spotify:</b> 119.00 (Subscriptions)</li>
     </ul>
 
     <h3>Recurring investments</h3>
     <ul>
-      <li><b>SIP Investment:</b> 39,000.00 (Investment)</li>
-      <li><b>NACH Mutual Fund SIP:</b> 8,500.00 (Investment)</li>
-      <li><b>Post Office RD:</b> 5,000.00 (Recurring Deposit)</li>
-      <li><b>SafeGold:</b> 2,500.00 (Gold)</li>
+      <li><b>Axis Mutual Fund:</b> 10,000.00 (Investment)</li>
+      <li><b>India Post Payments Bank:</b> 6,000.00 (Investment)</li>
     </ul>
 
     <h3>Payments pending (not yet paid, not included in total spent)</h3>
-    <ul><li><b>BESCOM:</b> 1,240.00 due — Utilities (2026-07-16)</li></ul>
-
-    <h3>Money in this period (not spend — total: 66,329.00)</h3>
     <ul>
-      <li><b>Client Payment:</b> 45,000.00 — Razorpay (WebDesign Co client)</li>
-      <li><b>Investment Gains:</b> 18,500.00 — NJ India Online (mutual fund redemption)</li>
-      <li><b>Interest Income:</b> 2,124.00 — HDFC Bank</li>
-      <li><b>Income (Dividends):</b> 705.00 — Tata Power Company Ltd</li>
+      <li><b>Income Tax Department:</b> 9,000.00 due — Advance Tax (2026-07-25)</li>
+      <li><b>SIP:</b> 40,000.00 due — Investment (2026-07-20)</li>
+      <li><b>YouTube:</b> 299.00 due — Subscriptions (2026-07-22)</li>
+      <li><b>Google Cloud Platform:</b> 1,100.00 due — Subscriptions (2026-07-15)</li>
+      <li><b>BESCOM:</b> 1,240.00 due — Utilities (2026-07-30)</li>
+    </ul>
+
+    <h3>Money in this period (not spend — total: 575,400.00)</h3>
+    <ul>
+      <li><b>Client Payment:</b> 400,000.00 — Inflow from WebDesign Co (business)</li>
+      <li><b>Salary Income:</b> 85,000.00 — Salary credit from HDFC Bank (personal)</li>
+      <li><b>Business Income:</b> 68,000.00 — POS collections settled by Razorpay POS (business)</li>
+      <li><b>Investment Gains:</b> 22,400.00 — Redemption credit from HDFC Mutual Fund (personal)</li>
     </ul>
 
     <h3>Business vs personal</h3>
     <ul>
-      <li><b>Business spend:</b> 2,999.00 (Anthropic + Google Cloud — freelance web/dev tools)</li>
-      <li><b>Personal spend:</b> 95,514.00</li>
-      <li><b>Untagged spend:</b> 160.00 (UPI transfers — couldn't tell which)</li>
-      <li><b>Business money in:</b> 45,000.00 (the client payment above)</li>
-      <li><b>Personal money in:</b> 21,329.00</li>
+      <li><b>Business spend:</b> 303,173.00 (Equipment, Payroll, business-side Rent, GST Payment, Vendor Payment, and business SaaS subscriptions)</li>
+      <li><b>Personal spend:</b> 73,094.00</li>
+      <li><b>Untagged spend:</b> 123,450.00 (mostly the bulk bank transfers — couldn't tell which side)</li>
+      <li><b>Business money in:</b> 468,000.00 (Client Payment + Business Income)</li>
+      <li><b>Personal money in:</b> 107,400.00 (Salary Income + Investment Gains)</li>
     </ul>
 
     <h3>Recommendations</h3>
     <ul>
-      <li>Review the flagged Frame Kro duplicate — two emails matched the same ₹499 order.</li>
-      <li>Pay the pending BESCOM electricity bill (₹1,240) before its due date — not yet reflected as paid.</li>
-      <li>Claim the 18% GST input credit on your ₹2,999 SaaS spend (Anthropic + Google Cloud).</li>
-      <li>You're over budget on Groceries, Shopping, and SaaS this month — worth a look.</li>
-      <li>Follow up on the ₹850 PVR Cinemas debit with no matching invoice email.</li>
-      <li>Your NJ India Online redemption returned ₹18,500 this period — consider redeploying it into your RD/gold ladder instead of letting it sit idle.</li>
+      <li>Review the flagged Frame Kro duplicate — two emails matched the same ₹999 order, three days apart.</li>
+      <li>Settle the Q2 FY2026-27 Advance Tax obligation — ₹9,000.00 to the Income Tax Department is due July 25, 2026.</li>
+      <li>Claim your GST Input Tax Credit — ₹236,773.00 was verified as GST-eligible this month, including large-ticket purchases from Espresso Equipment India and software subscriptions like Anthropic PBC (Claude Pro) and Adobe Inc.</li>
+      <li>Confirm the Google Cloud Platform payment status — the ₹1,100.00 auto-payment (originally due July 15) is still showing pending; check your billing account for a bounced card or manual confirmation requirement.</li>
+      <li>BESCOM electricity (₹1,240.00) and the ₹40,000.00 SIP debit are also still pending — worth confirming both clear before their due dates.</li>
     </ul>
 
     <h3>Growth signals <span style="font-size:11px; font-weight:400; color:var(--text-muted); text-transform:none; letter-spacing:0;">(preview — needs multi-month history, see Future scope)</span></h3>
     <ul>
-      <li>This run only has one month of data, so trend deltas aren't computed yet — the Sheets ledger (built but not wired in, see below) is what turns this into month-over-month insight.</li>
-      <li>Once enabled: automatic spend-trend deltas per category (e.g. "SaaS up 18% QoQ"), a cash-flow view netting total spent against total income, and reinvestment nudges like the one above generated automatically instead of hand-written.</li>
+      <li>This run only has one month of data, so trend deltas aren't computed yet — the Sheets export below is live today (every run auto-writes here), but it overwrites rather than accumulates, so month-over-month memory still needs the persistent ledger described in Future scope.</li>
+      <li>Once enabled: automatic spend-trend deltas per category (e.g. "Equipment spend up 40% MoM"), a cash-flow view netting total spent against total money in, and reinvestment nudges generated automatically instead of hand-written.</li>
     </ul>
   </template>
 
   <div class="metric-row">
-    <div class="metric-card"><div class="metric-label">Total spent</div><div class="metric-value">98,673</div></div>
-    <div class="metric-card"><div class="metric-label">Transactions</div><div class="metric-value">25</div></div>
+    <div class="metric-card"><div class="metric-label">Total spent</div><div class="metric-value">499,717</div></div>
+    <div class="metric-card"><div class="metric-label">Transactions</div><div class="metric-value">34</div></div>
     <div class="metric-card">
       <div class="metric-label">Duplicates flagged</div><div class="metric-value">1</div>
       <span class="metric-badge" style="background:color-mix(in srgb, var(--coral) 13%, transparent); color:var(--coral);">Review these</span>
     </div>
     <div class="metric-card">
-      <div class="metric-label">Missing invoices</div><div class="metric-value">1</div>
-      <span class="metric-badge" style="background:color-mix(in srgb, var(--coral) 13%, transparent); color:var(--coral);">Needs follow-up</span>
+      <div class="metric-label">Missing invoices</div><div class="metric-value">0</div>
+      <span class="metric-badge" style="background:color-mix(in srgb, var(--teal) 13%, transparent); color:var(--teal);">All matched</span>
     </div>
   </div>
 
@@ -309,9 +310,9 @@
     <div>
       <div class="ledger-balance-card">
         <div class="ledger-balance-label">Ledger summary</div>
-        <div class="ledger-balance-value">98,673.00</div>
-        <div class="ledger-stat-row"><span>Recurring charges</span><span>11</span></div>
-        <div class="ledger-stat-row"><span>GST-eligible total</span><span>2,999.00</span></div>
+        <div class="ledger-balance-value">499,717.00</div>
+        <div class="ledger-stat-row"><span>Recurring charges</span><span>15</span></div>
+        <div class="ledger-stat-row"><span>GST-eligible total</span><span>236,773.00</span></div>
         <div class="ledger-stat-row"><span>Ledger sync</span><span>coming soon</span></div>
       </div>
     </div>
@@ -323,33 +324,37 @@
   </div>
 
   <div class="panel">
-    <div class="panel-title">Missing invoices <span class="tag" style="background:color-mix(in srgb, var(--coral) 13%, transparent); color:var(--coral);">1</span></div>
-    <div class="missing-row"><span>PVR CINEMAS - MOVIE TICKETS</span><span style="color:var(--coral);">850.00</span></div>
+    <div class="panel-title">Missing invoices <span class="tag" style="background:color-mix(in srgb, var(--teal) 13%, transparent); color:var(--teal);">0</span></div>
+    <div class="empty-hint">All matched — every bank debit this period has a corresponding invoice email.</div>
   </div>
 
   <div class="panel">
-    <div class="panel-title">Payments pending <span class="tag" style="background:color-mix(in srgb, var(--amber) 13%, transparent); color:var(--amber);">1</span></div>
+    <div class="panel-title">Payments pending <span class="tag" style="background:color-mix(in srgb, var(--amber) 13%, transparent); color:var(--amber);">5</span></div>
     <p style="font-size:12px; color:var(--text-muted); margin:-8px 0 10px 0;">Bill generated/issued but not confirmed paid — not counted in total spent above.</p>
-    <div class="missing-row"><span>BESCOM &middot; Utilities</span><span style="color:var(--amber);">1,240.00</span></div>
+    <div class="missing-row"><span>Income Tax Department &middot; Advance Tax &middot; due 2026-07-25</span><span style="color:var(--amber);">9,000.00</span></div>
+    <div class="missing-row"><span>SIP &middot; Investment &middot; due 2026-07-20</span><span style="color:var(--amber);">40,000.00</span></div>
+    <div class="missing-row"><span>YouTube &middot; Subscriptions &middot; due 2026-07-22</span><span style="color:var(--amber);">299.00</span></div>
+    <div class="missing-row"><span>Google Cloud Platform &middot; Subscriptions &middot; due 2026-07-15</span><span style="color:var(--amber);">1,100.00</span></div>
+    <div class="missing-row"><span>BESCOM &middot; Utilities &middot; due 2026-07-30</span><span style="color:var(--amber);">1,240.00</span></div>
   </div>
 
   <div class="panel">
-    <div class="panel-title">Money in this period <span class="tag" style="background:color-mix(in srgb, var(--teal) 13%, transparent); color:var(--teal);">66,329.00</span></div>
-    <p style="font-size:12px; color:var(--text-muted); margin:-8px 0 10px 0;">Salary, interest, dividends, client payments, and investment gains/redemption/maturity payouts — not spend, not included in total spent above.</p>
-    <div class="missing-row"><span>Client Payment &middot; Razorpay (WebDesign Co)</span><span style="color:var(--teal);">+45,000.00</span></div>
-    <div class="missing-row"><span>Investment Gains &middot; NJ India Online</span><span style="color:var(--teal);">+18,500.00</span></div>
-    <div class="missing-row"><span>Interest Income &middot; HDFC Bank</span><span style="color:var(--teal);">+2,124.00</span></div>
-    <div class="missing-row"><span>Income (Dividends) &middot; Tata Power Company Ltd</span><span style="color:var(--teal);">+705.00</span></div>
+    <div class="panel-title">Money in this period <span class="tag" style="background:color-mix(in srgb, var(--teal) 13%, transparent); color:var(--teal);">575,400.00</span></div>
+    <p style="font-size:12px; color:var(--text-muted); margin:-8px 0 10px 0;">Client payments, salary, business income, and investment gains/redemptions — not spend, not included in total spent above.</p>
+    <div class="missing-row"><span>Client Payment &middot; Inflow from WebDesign Co</span><span style="color:var(--teal);">+400,000.00</span></div>
+    <div class="missing-row"><span>Salary Income &middot; HDFC Bank</span><span style="color:var(--teal);">+85,000.00</span></div>
+    <div class="missing-row"><span>Business Income &middot; Razorpay POS collections</span><span style="color:var(--teal);">+68,000.00</span></div>
+    <div class="missing-row"><span>Investment Gains &middot; HDFC Mutual Fund redemption</span><span style="color:var(--teal);">+22,400.00</span></div>
   </div>
 
   <div class="panel">
     <div class="panel-title">Business vs personal</div>
     <p style="font-size:12px; color:var(--text-muted); margin:-8px 0 10px 0;">Same total spent/money-in above, split by what each transaction looks like it was for — this audience typically runs both through one inbox/account.</p>
-    <div class="missing-row"><span style="color:#F472B6; font-weight:600;">Business spend</span><span style="color:#F472B6;">2,999.00</span></div>
-    <div class="missing-row"><span style="color:var(--teal); font-weight:600;">Personal spend</span><span style="color:var(--teal);">95,514.00</span></div>
-    <div class="missing-row"><span style="color:var(--text-muted);">Untagged spend (couldn't tell which)</span><span style="color:var(--text-muted);">160.00</span></div>
-    <div class="missing-row"><span style="color:#F472B6; font-weight:600;">Business money in</span><span style="color:#F472B6;">+45,000.00</span></div>
-    <div class="missing-row"><span style="color:var(--teal); font-weight:600;">Personal money in</span><span style="color:var(--teal);">+21,329.00</span></div>
+    <div class="missing-row"><span style="color:#F472B6; font-weight:600;">Business spend</span><span style="color:#F472B6;">303,173.00</span></div>
+    <div class="missing-row"><span style="color:var(--teal); font-weight:600;">Personal spend</span><span style="color:var(--teal);">73,094.00</span></div>
+    <div class="missing-row"><span style="color:var(--text-muted);">Untagged spend (couldn't tell which)</span><span style="color:var(--text-muted);">123,450.00</span></div>
+    <div class="missing-row"><span style="color:#F472B6; font-weight:600;">Business money in</span><span style="color:#F472B6;">+468,000.00</span></div>
+    <div class="missing-row"><span style="color:var(--teal); font-weight:600;">Personal money in</span><span style="color:var(--teal);">+107,400.00</span></div>
   </div>
 
   <div class="row2b">
@@ -363,12 +368,54 @@
     </div>
   </div>
 
+  <div class="current-features-panel">
+    <div class="current-features-title">✅ CURRENT FEATURES — Live today</div>
+    <p class="current-features-sub">
+      Everything below is already running in the real app, not a mockup — this static page just replays a
+      captured trace so it can be viewed without connecting a Google account.
+    </p>
+    <div class="current-features-grid">
+      <div class="current-feature-card">
+        <div class="current-feature-card-title">📥 Gmail discovery (readonly)</div>
+        <p>Scans your inbox — excluding Sent, Drafts, and Chats — for invoices, receipts, bills, and statements, with a readonly OAuth scope that can never send, delete, or modify anything.</p>
+      </div>
+      <div class="current-feature-card">
+        <div class="current-feature-card-title">🔍 Duplicate, recurring &amp; budget checks</div>
+        <p>Flags duplicate charges, recurring subscriptions/investments, budget overruns, and bank-CSV debits with no matching invoice email — all before totals are calculated.</p>
+      </div>
+      <div class="current-feature-card">
+        <div class="current-feature-card-title">🏷️ Business vs personal tagging</div>
+        <p>Every transaction is tagged business, personal, or untagged in place — no need to keep separate accounts or inboxes to get the split.</p>
+      </div>
+      <div class="current-feature-card">
+        <div class="current-feature-card-title">📊 One-click Google Sheets export</div>
+        <p>Paste a Sheet ID once and every run auto-writes its report to that Sheet's first tab (overwriting, never appending). Skip the field and nothing is written — and mock/UI-testing runs never touch your Sheet either way.</p>
+      </div>
+      <div class="current-feature-card">
+        <div class="current-feature-card-title">📄 One-click PDF export</div>
+        <p>Download the full report — metrics, category breakdown, and the AI-written narrative — as a shareable PDF.</p>
+      </div>
+      <div class="current-feature-card">
+        <div class="current-feature-card-title">🔐 Real, single-click Google sign-in</div>
+        <p>Opens a genuine link in a new tab to pick your account — never a silently-blocked popup — and that tab closes itself the moment sign-in finishes.</p>
+      </div>
+      <div class="current-feature-card">
+        <div class="current-feature-card-title">👋 Smart greeting handling</div>
+        <p>A plain "hi" gets a short reply about what ReconAI does.</p>
+      </div>
+      <div class="current-feature-card">
+        <div class="current-feature-card-title">🛡️ Guardrails</div>
+        <p>Readonly Gmail scope, input/output filters, rate limiting, a destructive-action blocklist, and CSV sanitizing are active on every run.</p>
+      </div>
+    </div>
+  </div>
+
   <div class="future-scope-panel">
     <div class="future-scope-title">🚀 FUTURE SCOPE — Planned Integrations</div>
     <p class="future-scope-sub">
       This hackathon build is deliberately scoped to one Gmail inbox + one bank statement per run, to keep
-      API/compute usage inside budget — not because the rest is unbuilt. The tool-layer logic for all four of
-      these already exists and is designed to extend this way with more headroom.
+      API/compute usage inside budget — not because the rest is unbuilt. The tool-layer logic for all four
+      of these already exists and is designed to extend this way with more headroom.
     </p>
     <div class="future-scope-grid">
       <div class="future-scope-card">
@@ -376,8 +423,8 @@
         <p>Scan Drive for receipts/invoices saved outside Gmail — downloaded PDFs, scanned bills — so Discovery isn't limited to what arrived by email.</p>
       </div>
       <div class="future-scope-card">
-        <div class="future-scope-card-title">📊 Google Sheets sync</div>
-        <p>A persistent ledger that remembers what's already been reconciled across runs, and lets the Reporting Agent answer questions across multiple months, not just this run.</p>
+        <div class="future-scope-card-title">🧾 Persistent, multi-month ledger</div>
+        <p>The Sheets export above is live and auto-writes every run today — the next step is a ledger that remembers what's already reconciled across runs, so the Reporting Agent can answer questions across multiple months instead of just this one.</p>
       </div>
       <div class="future-scope-card">
         <div class="future-scope-card-title">🔗 Cross-account reconciliation</div>
@@ -385,7 +432,7 @@
       </div>
       <div class="future-scope-card">
         <div class="future-scope-card-title">📈 Growth-strategy synthesis</div>
-        <p>Month-over-month spend-trend deltas, a cash-flow view netting spend against income, and reinvestment nudges — needs the Sheets ledger above for multi-month history.</p>
+        <p>Month-over-month spend-trend deltas, a cash-flow view netting spend against income, and reinvestment nudges — needs the persistent ledger above for multi-month history.</p>
       </div>
     </div>
   </div>
@@ -411,37 +458,46 @@
 
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 <script>
-  // ---- Pipeline trace data (mirrors mock_data/discovery_output_sample.json and
-  // the real check_duplicates_and_budget output shape) ----
+  // ---- Pipeline trace data (mirrors the shape of mock_data/discovery_output_sample.json and
+  // the real check_duplicates_and_budget output) ----
   var discoveryOutput = {
     "status": "ok",
-    "count": 25,
+    "count": 34,
     "transactions": [
-      {"source_id": "19f2208354f379c9:hdfc_interest_jul01", "vendor": "HDFC Bank", "amount": 2124.0, "date": "2026-07-01", "category": "Interest Income", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "18d9a41c220b5f3a:groceries_jul", "vendor": "BigBasket", "amount": 3200.0, "date": "2026-07-08", "category": "Groceries", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "18d9a41c220b5f3b:amazon_jul", "vendor": "Amazon", "amount": 2450.0, "date": "2026-07-12", "category": "Shopping", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1a2b3c4d5e6f7001:anthropic_jul", "vendor": "Anthropic PBC", "amount": 1899.0, "date": "2026-07-05", "category": "SaaS", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": true, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1a2b3c4d5e6f7002:gcp_jul", "vendor": "Google Cloud Platform", "amount": 1100.0, "date": "2026-07-18", "category": "SaaS", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": true, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1a2b3c4d5e6f7003:client_payment_jul", "vendor": "Razorpay - WebDesign Co (client)", "amount": 45000.0, "date": "2026-07-09", "category": "Client Payment", "spend_type_guess": "business", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1b3c5d7e9f102030:sip_jul", "vendor": "SIP Investment", "amount": 39000.0, "date": "2026-07-16", "category": "Investment", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1b3c5d7e9f102031:nach_sip_jul", "vendor": "NACH Mutual Fund SIP", "amount": 8500.0, "date": "2026-07-05", "category": "Investment", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1b3c5d7e9f102032:rd_jul", "vendor": "Post Office RD", "amount": 5000.0, "date": "2026-07-05", "category": "Recurring Deposit", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1b3c5d7e9f102033:gold_jul", "vendor": "SafeGold", "amount": 2500.0, "date": "2026-07-10", "category": "Gold", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1b3c5d7e9f102034:zerodha_jul", "vendor": "Zerodha", "amount": 12000.0, "date": "2026-07-11", "category": "Stock", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1b3c5d7e9f102035:mf_redemption_jul", "vendor": "NJ India Online", "amount": 18500.0, "date": "2026-07-13", "category": "Investment Gains", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1c4d5e6f70819202:framekro_confirm", "vendor": "Frame Kro", "amount": 499.0, "date": "2026-07-16", "category": "Shopping", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1c4d5e6f70819203:framekro_receipt", "vendor": "Frame Kro", "amount": 499.0, "date": "2026-07-17", "category": "Shopping", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1d5e6f7081920a1b:bescom_bill_jul", "vendor": "BESCOM", "amount": 1240.0, "date": "2026-07-16", "category": "Utilities", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "pending", "status": "ok"},
-      {"source_id": "1e6f708192a3b4c5:zomato_jul18", "vendor": "Sri Krishna Sagar", "amount": 239.0, "date": "2026-07-19", "category": "Food", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1e6f708192a3b4c6:swiggy_jul18", "vendor": "Indira Priyadarshini", "amount": 760.0, "date": "2026-07-18", "category": "Food", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1f708192a3b4c5d6:upi_1", "vendor": "q635075112@ybl", "amount": 80.0, "date": "2026-07-18", "category": "Transfer", "spend_type_guess": "unknown", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "1f708192a3b4c5d7:upi_2", "vendor": "q958687424@ybl", "amount": 80.0, "date": "2026-07-16", "category": "Transfer", "spend_type_guess": "unknown", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "208192a3b4c5d6e7:tata_dividend", "vendor": "Tata Power Company Ltd", "amount": 705.0, "date": "2026-07-14", "category": "Income (Dividends)", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "21a2b3c4d5e6f701:netflix_jul", "vendor": "Netflix", "amount": 649.0, "date": "2026-07-03", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "21a2b3c4d5e6f702:hotstar_jul", "vendor": "Disney+ Hotstar", "amount": 299.0, "date": "2026-07-04", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "21a2b3c4d5e6f703:prime_jul", "vendor": "Amazon Prime", "amount": 299.0, "date": "2026-07-06", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "21a2b3c4d5e6f704:spotify_jul", "vendor": "Spotify", "amount": 119.0, "date": "2026-07-07", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
-      {"source_id": "22a2b3c4d5e6f701:rent_jul", "vendor": "Landlord - Dom's Residence", "amount": 20000.0, "date": "2026-07-02", "category": "Rent", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"}
+      {"source_id": "3a1f2208354f001:equipment_jul", "vendor": "Espresso Equipment India", "amount": 185000.0, "date": "2026-07-02", "category": "Equipment", "spend_type_guess": "business", "is_recurring_guess": false, "gst_eligible_guess": true, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f002:hdfc_transfer_jul", "vendor": "HDFC Bank", "amount": 100000.0, "date": "2026-07-03", "category": "Transfer", "spend_type_guess": "unknown", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f003:swish_transfer_jul", "vendor": "swishwallet.hyperpg@axb", "amount": 24450.0, "date": "2026-07-15", "category": "Transfer", "spend_type_guess": "unknown", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f004:rent_commercial_jul", "vendor": "Property Owner - Commercial Space", "amount": 35000.0, "date": "2026-07-01", "category": "Rent", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f005:rent_residence_jul", "vendor": "Dom's Residence Property Management", "amount": 20000.0, "date": "2026-07-01", "category": "Rent", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f006:payroll_jul", "vendor": "RazorpayX Payroll", "amount": 54000.0, "date": "2026-07-05", "category": "Payroll", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f007:safegold_jul", "vendor": "SafeGold", "amount": 12200.0, "date": "2026-07-10", "category": "Investment", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f008:zerodha_jul", "vendor": "Zerodha", "amount": 16000.0, "date": "2026-07-11", "category": "Investment", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f009:axis_mf_jul", "vendor": "Axis Mutual Fund", "amount": 10000.0, "date": "2026-07-05", "category": "Investment", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f010:indiapost_jul", "vendor": "India Post Payments Bank", "amount": 6000.0, "date": "2026-07-05", "category": "Investment", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f011:gst_portal_jul", "vendor": "GST Portal", "amount": 12400.0, "date": "2026-07-20", "category": "GST Payment", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f012:namecheap_jul", "vendor": "Namecheap", "amount": 3200.0, "date": "2026-07-06", "category": "Subscriptions", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": true, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f013:anthropic_jul", "vendor": "Anthropic PBC", "amount": 1899.0, "date": "2026-07-05", "category": "Subscriptions", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": true, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f014:adobe_jul", "vendor": "Adobe Inc.", "amount": 1675.0, "date": "2026-07-07", "category": "Subscriptions", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": true, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f015:petpooja_jul", "vendor": "Petpooja", "amount": 1499.0, "date": "2026-07-08", "category": "Subscriptions", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": true, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f016:netflix_jul", "vendor": "Netflix", "amount": 649.0, "date": "2026-07-03", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f017:prime_jul", "vendor": "Amazon Prime", "amount": 299.0, "date": "2026-07-06", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f018:hotstar_jul", "vendor": "Disney+ Hotstar", "amount": 299.0, "date": "2026-07-04", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f019:spotify_jul", "vendor": "Spotify", "amount": 119.0, "date": "2026-07-07", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f020:coffeebean_jul", "vendor": "Coffee Bean Co.", "amount": 8500.0, "date": "2026-07-09", "category": "Vendor Payment", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": true, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f021:blinkit_jul", "vendor": "BLINK COMMERCE PVT LTD", "amount": 2180.0, "date": "2026-07-12", "category": "Groceries", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f022:bigbasket_jul", "vendor": "BigBasket", "amount": 1399.0, "date": "2026-07-19", "category": "Groceries", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f023:framekro_confirm", "vendor": "Frame Kro", "amount": 999.0, "date": "2026-07-16", "category": "Shopping", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f024:framekro_receipt", "vendor": "Frame Kro", "amount": 999.0, "date": "2026-07-17", "category": "Shopping", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f025:amazonin_jul", "vendor": "Amazon.in", "amount": 1950.0, "date": "2026-07-14", "category": "Shopping", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f026:advancetax_jul", "vendor": "Income Tax Department", "amount": 9000.0, "date": "2026-07-25", "category": "Advance Tax", "spend_type_guess": "business", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "pending", "status": "ok"},
+      {"source_id": "3a1f2208354f027:sip_jul", "vendor": "SIP", "amount": 40000.0, "date": "2026-07-20", "category": "Investment", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "pending", "status": "ok"},
+      {"source_id": "3a1f2208354f028:youtube_jul", "vendor": "YouTube", "amount": 299.0, "date": "2026-07-22", "category": "Subscriptions", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "pending", "status": "ok"},
+      {"source_id": "3a1f2208354f029:gcp_jul", "vendor": "Google Cloud Platform", "amount": 1100.0, "date": "2026-07-15", "category": "Subscriptions", "spend_type_guess": "business", "is_recurring_guess": true, "gst_eligible_guess": true, "payment_status_guess": "pending", "status": "ok"},
+      {"source_id": "3a1f2208354f030:bescom_jul", "vendor": "BESCOM", "amount": 1240.0, "date": "2026-07-30", "category": "Utilities", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "pending", "status": "ok"},
+      {"source_id": "3a1f2208354f031:clientpayment_jul", "vendor": "Client Payment - WebDesign Co", "amount": 400000.0, "date": "2026-07-09", "category": "Client Payment", "spend_type_guess": "business", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f032:salary_jul", "vendor": "Salary Income - HDFC Bank", "amount": 85000.0, "date": "2026-07-01", "category": "Salary Income", "spend_type_guess": "personal", "is_recurring_guess": true, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f033:bizincome_jul", "vendor": "Business Income - Razorpay POS", "amount": 68000.0, "date": "2026-07-18", "category": "Business Income", "spend_type_guess": "business", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"},
+      {"source_id": "3a1f2208354f034:investgains_jul", "vendor": "Investment Gains - HDFC Mutual Fund", "amount": 22400.0, "date": "2026-07-21", "category": "Investment Gains", "spend_type_guess": "personal", "is_recurring_guess": false, "gst_eligible_guess": false, "payment_status_guess": "paid", "status": "ok"}
     ]
   };
 
@@ -449,21 +505,23 @@
     "status": "ok",
     "duplicate_count": 1,
     "duplicates": [
-      {"vendor": "Frame Kro", "amount": 499.0, "dates": ["2026-07-16", "2026-07-17"], "note": "same vendor + amount within a 3-day window -> flagged, excluded from totals"}
+      {"vendor": "Frame Kro", "amount": 999.0, "dates": ["2026-07-16", "2026-07-17"], "note": "same vendor + amount within a 3-day window -> flagged, excluded from totals"}
     ],
-    "missing_invoices": [
-      {"description": "PVR CINEMAS - MOVIE TICKETS", "amount": 850.0, "date": "2026-07-20", "note": "bank debit with no matching invoice email"}
-    ],
-    "recurring_count": 11,
+    "missing_invoices": [],
+    "recurring_count": 15,
     "payments_pending": [
-      {"vendor": "BESCOM", "amount": 1240.0, "category": "Utilities", "due_date": "2026-07-16", "note": "bill generated, not yet confirmed paid"}
+      {"vendor": "Income Tax Department", "amount": 9000.0, "category": "Advance Tax", "due_date": "2026-07-25", "note": "bill generated, not yet confirmed paid"},
+      {"vendor": "SIP", "amount": 40000.0, "category": "Investment", "due_date": "2026-07-20", "note": "bill generated, not yet confirmed paid"},
+      {"vendor": "YouTube", "amount": 299.0, "category": "Subscriptions", "due_date": "2026-07-22", "note": "bill generated, not yet confirmed paid"},
+      {"vendor": "Google Cloud Platform", "amount": 1100.0, "category": "Subscriptions", "due_date": "2026-07-15", "note": "auto-payment still showing pending"},
+      {"vendor": "BESCOM", "amount": 1240.0, "category": "Utilities", "due_date": "2026-07-30", "note": "bill generated, not yet confirmed paid"}
     ],
     "budget_summary": {
-      "Groceries": {"spent": 3200, "budget": 3000, "over_budget": true},
-      "Shopping": {"spent": 3448, "budget": 2000, "over_budget": true},
-      "SaaS": {"spent": 2999, "budget": 2500, "over_budget": true},
-      "Subscriptions": {"spent": 1366, "budget": 2000, "over_budget": false},
-      "Rent": {"spent": 20000, "budget": 20000, "over_budget": false}
+      "Groceries": {"spent": 3579, "budget": 3500, "over_budget": true},
+      "Shopping": {"spent": 2949, "budget": 2500, "over_budget": true},
+      "Subscriptions": {"spent": 9639, "budget": 8000, "over_budget": true},
+      "Rent": {"spent": 55000, "budget": 55000, "over_budget": false},
+      "Payroll": {"spent": 54000, "budget": 60000, "over_budget": false}
     }
   };
 
@@ -569,49 +627,41 @@
     }
   });
 
+  // First 10 transactions, in the same spirit as _MOCK_RECONCILED_DATA in app.py — the
+  // real dashboard's "Recent transactions" panel shows transactions[:10] in insertion
+  // order, not sorted by date or amount.
   var transactions = [
-    {vendor:"HDFC Bank", amount:2124.00, category:"Interest Income", date:"2026-07-01", dup:false, rec:true, pending:false, income:true},
-    {vendor:"Landlord - Dom's Residence", amount:20000.00, category:"Rent", date:"2026-07-02", dup:false, rec:true, pending:false},
-    {vendor:"Netflix", amount:649.00, category:"Subscriptions", date:"2026-07-03", dup:false, rec:true, pending:false},
-    {vendor:"Disney+ Hotstar", amount:299.00, category:"Subscriptions", date:"2026-07-04", dup:false, rec:true, pending:false},
-    {vendor:"Anthropic PBC", amount:1899.00, category:"SaaS", date:"2026-07-05", dup:false, rec:true, pending:false, business:true},
-    {vendor:"Post Office RD", amount:5000.00, category:"Recurring Deposit", date:"2026-07-05", dup:false, rec:true, pending:false},
-    {vendor:"Amazon Prime", amount:299.00, category:"Subscriptions", date:"2026-07-06", dup:false, rec:true, pending:false},
-    {vendor:"Spotify", amount:119.00, category:"Subscriptions", date:"2026-07-07", dup:false, rec:true, pending:false},
-    {vendor:"BigBasket", amount:3200.00, category:"Groceries", date:"2026-07-08", dup:false, rec:false, pending:false},
-    {vendor:"Razorpay - WebDesign Co (client)", amount:45000.00, category:"Client Payment", date:"2026-07-09", dup:false, rec:false, pending:false, income:true, business:true},
-    {vendor:"SafeGold", amount:2500.00, category:"Gold", date:"2026-07-10", dup:false, rec:true, pending:false},
-    {vendor:"Zerodha", amount:12000.00, category:"Stock", date:"2026-07-11", dup:false, rec:false, pending:false},
-    {vendor:"Amazon", amount:2450.00, category:"Shopping", date:"2026-07-12", dup:false, rec:false, pending:false},
-    {vendor:"NJ India Online", amount:18500.00, category:"Investment Gains", date:"2026-07-13", dup:false, rec:false, pending:false, income:true},
-    {vendor:"SIP Investment", amount:39000.00, category:"Investment", date:"2026-07-16", dup:false, rec:true, pending:false},
-    {vendor:"Frame Kro", amount:499.00, category:"Shopping", date:"2026-07-16", dup:false, rec:false, pending:false},
-    {vendor:"Frame Kro", amount:499.00, category:"Shopping", date:"2026-07-17", dup:true, rec:false, pending:false},
-    {vendor:"BESCOM", amount:1240.00, category:"Utilities", date:"2026-07-16", dup:false, rec:true, pending:true},
-    {vendor:"Sri Krishna Sagar", amount:239.00, category:"Food", date:"2026-07-19", dup:false, rec:false, pending:false},
+    {vendor:"Espresso Equipment India", amount:185000.00, category:"Equipment", date:"2026-07-02", dup:false, rec:false, pending:false, business:true},
+    {vendor:"HDFC Bank", amount:100000.00, category:"Transfer", date:"2026-07-03", dup:false, rec:false, pending:false},
+    {vendor:"Property Owner - Commercial Space", amount:35000.00, category:"Rent", date:"2026-07-01", dup:false, rec:true, pending:false, business:true},
+    {vendor:"RazorpayX Payroll", amount:54000.00, category:"Payroll", date:"2026-07-05", dup:false, rec:true, pending:false, business:true},
+    {vendor:"Dom's Residence Property Management", amount:20000.00, category:"Rent", date:"2026-07-01", dup:false, rec:true, pending:false},
+    {vendor:"Axis Mutual Fund", amount:10000.00, category:"Investment", date:"2026-07-05", dup:false, rec:true, pending:false},
+    {vendor:"SafeGold", amount:12200.00, category:"Investment", date:"2026-07-10", dup:false, rec:false, pending:false},
+    {vendor:"GST Portal", amount:12400.00, category:"GST Payment", date:"2026-07-20", dup:false, rec:true, pending:false, business:true},
+    {vendor:"Coffee Bean Co.", amount:8500.00, category:"Vendor Payment", date:"2026-07-09", dup:false, rec:true, pending:false, business:true},
+    {vendor:"swishwallet.hyperpg@axb", amount:24450.00, category:"Transfer", date:"2026-07-15", dup:false, rec:false, pending:false},
   ];
   var subscriptions = [
-    {vendor:"Anthropic PBC", amount:1899.00, category:"SaaS"},
-    {vendor:"Google Cloud Platform", amount:1100.00, category:"SaaS"},
+    {vendor:"Namecheap", amount:3200.00, category:"Subscriptions"},
+    {vendor:"Anthropic PBC", amount:1899.00, category:"Subscriptions"},
+    {vendor:"Adobe Inc.", amount:1675.00, category:"Subscriptions"},
+    {vendor:"Petpooja", amount:1499.00, category:"Subscriptions"},
     {vendor:"Netflix", amount:649.00, category:"Subscriptions"},
-    {vendor:"Disney+ Hotstar", amount:299.00, category:"Subscriptions"},
     {vendor:"Amazon Prime", amount:299.00, category:"Subscriptions"},
+    {vendor:"Disney+ Hotstar", amount:299.00, category:"Subscriptions"},
     {vendor:"Spotify", amount:119.00, category:"Subscriptions"},
   ];
   var investments = [
-    {vendor:"SIP Investment", amount:39000.00, category:"Investment"},
-    {vendor:"NACH Mutual Fund SIP", amount:8500.00, category:"Investment"},
-    {vendor:"Post Office RD", amount:5000.00, category:"Recurring Deposit"},
-    {vendor:"SafeGold", amount:2500.00, category:"Gold"},
+    {vendor:"Axis Mutual Fund", amount:10000.00, category:"Investment"},
+    {vendor:"India Post Payments Bank", amount:6000.00, category:"Investment"},
   ];
-  var categoryColorsDark = ["#22D3EE", "#3B82F6", "#38BDF8", "#818CF8", "#2DD4BF", "#93C5FD", "#0EA5E9", "#F472B6"];
-  var categoryColorsLight = ["#0891B2", "#4F46E5", "#2563EB", "#7C3AED", "#0D9488", "#DB2777", "#0284C7", "#EA580C"];
+  var categoryColors = ["#22D3EE", "#3B82F6", "#38BDF8", "#818CF8", "#2DD4BF", "#93C5FD", "#0EA5E9", "#F472B6", "#A78BFA", "#34D399"];
 
   function avatarColor(vendor) {
-    var colors = document.documentElement.getAttribute("data-theme") === "light" ? categoryColorsLight : categoryColorsDark;
     var hash = 0;
     for (var i = 0; i < vendor.length; i++) hash = vendor.charCodeAt(i) + ((hash << 5) - hash);
-    return colors[Math.abs(hash) % colors.length];
+    return categoryColors[Math.abs(hash) % categoryColors.length];
   }
 
   function renderTxnList() {
@@ -646,35 +696,20 @@
   }
 
   function renderDonut() {
-    var isLight = document.documentElement.getAttribute("data-theme") === "light";
-    var textColor = isLight ? "#0F1B2D" : "#E8FBFF";
-    var mutedColor = isLight ? "#64748B" : "#5E86A0";
-    var colors = isLight ? categoryColorsLight : categoryColorsDark;
-    var labels = ["Investment", "Rent", "Stock", "Recurring Deposit", "Groceries", "SaaS", "Shopping", "Gold", "Subscriptions", "Food", "Transfer"];
-    var values = [47500, 20000, 12000, 5000, 3200, 2999, 2949, 2500, 1366, 999, 160];
+    var labels = ["Equipment", "Transfer", "Rent", "Payroll", "Investment", "GST Payment", "Subscriptions", "Vendor Payment", "Groceries", "Shopping"];
+    var values = [185000, 124450, 55000, 54000, 44200, 12400, 9639, 8500, 3579, 2949];
     Plotly.newPlot("donut", [{
       labels: labels, values: values, type: "pie", hole: 0.62,
-      marker: { colors: colors, line: { color: isLight ? "#FFFFFF" : "#081726", width: 3 } },
+      marker: { colors: categoryColors, line: { color: "#081726", width: 3 } },
       textinfo: "none",
       hovertemplate: "%{label}: %{value:,.0f}<extra></extra>"
     }], {
       showlegend: true,
-      legend: { orientation: "v", yanchor: "middle", y: 0.5, xanchor: "left", x: 1.02, font: { color: textColor, size: 12 } },
+      legend: { orientation: "v", yanchor: "middle", y: 0.5, xanchor: "left", x: 1.02, font: { color: "#E8FBFF", size: 12 } },
       paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
       margin: { l: 0, r: 0, t: 10, b: 10 }, height: 260,
-      annotations: [{ text: "98,673<br><span style='font-size:11px;color:" + mutedColor + "'>total spent</span>", x: 0.5, y: 0.5, showarrow: false, font: { size: 18, color: textColor } }]
+      annotations: [{ text: "499,717<br><span style='font-size:11px;color:#5E86A0'>total spent</span>", x: 0.5, y: 0.5, showarrow: false, font: { size: 18, color: "#E8FBFF" } }]
     }, { displayModeBar: false, responsive: true });
-  }
-
-  function toggleTheme() {
-    var html = document.documentElement;
-    var isDark = html.getAttribute("data-theme") === "dark";
-    html.setAttribute("data-theme", isDark ? "light" : "dark");
-    document.getElementById("themeBtn").textContent = isDark ? "🌙 Dark" : "☀️ Light";
-    renderTxnList();
-    renderRecurringList("subList", subscriptions);
-    renderRecurringList("invList", investments);
-    renderDonut();
   }
 
   renderTxnList();

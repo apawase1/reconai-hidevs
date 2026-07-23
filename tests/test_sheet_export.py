@@ -1,8 +1,8 @@
-"""Tests for tools/reporting_tools.py's save_report_to_sheet — the explicit
-"Save to Sheet" snapshot feature (distinct from the still-dormant Sheets
-ledger). Covers: tab auto-creation when missing, overwrite-not-append
-semantics (clear before update), and formula-injection sanitizing of
-untrusted vendor/category text.
+"""Tests for tools/reporting_tools.py's save_report_to_sheet — the automatic
+first-tab export (distinct from the still-dormant Sheets ledger). Covers:
+writing to whichever tab is actually first (by position, not by name),
+overwrite-not-append semantics (clear before update), formula-injection
+sanitizing of untrusted vendor/category text, and failure handling.
 """
 
 from types import SimpleNamespace
@@ -28,17 +28,10 @@ class _FakeSpreadsheets:
     def __init__(self, existing_tabs):
         self._existing_tabs = existing_tabs
         self._values = _FakeValues()
-        self.batch_update_calls = []
 
-    def get(self, spreadsheetId):
+    def get(self, spreadsheetId, fields=None):
         sheets = [{"properties": {"title": t}} for t in self._existing_tabs]
         return SimpleNamespace(execute=lambda: {"sheets": sheets})
-
-    def batchUpdate(self, spreadsheetId, body):
-        self.batch_update_calls.append((spreadsheetId, body))
-        added = body["requests"][0]["addSheet"]["properties"]["title"]
-        self._existing_tabs.append(added)
-        return SimpleNamespace(execute=lambda: {})
 
     def values(self):
         return self._values
@@ -65,31 +58,31 @@ def _sample_report():
     return generate_monthly_report(data)
 
 
-def test_save_report_creates_dashboard_tab_when_missing(monkeypatch):
-    fake_service = _FakeSheetsService(existing_tabs=[])  # brand new, empty Sheet
+def test_save_report_writes_to_first_tab_regardless_of_its_name(monkeypatch):
+    fake_service = _FakeSheetsService(existing_tabs=["Sheet1", "Other"])
     monkeypatch.setattr("tools.reporting_tools.get_service", lambda *a, **k: fake_service)
 
     result = save_report_to_sheet(_sample_report(), sheet_id="sheet-123")
 
     assert result["status"] == "ok"
-    assert fake_service.spreadsheets().batch_update_calls, "should have created the missing Dashboard tab"
-    assert "Dashboard" in fake_service.spreadsheets()._existing_tabs
+    assert result["tab"] == "Sheet1"
+    values = fake_service.spreadsheets().values()
+    assert values.clear_calls[0][1] == "'Sheet1'!A:Z"
+    assert values.update_calls[0][1] == "'Sheet1'!A1"
 
 
-def test_save_report_skips_tab_creation_when_already_exists(monkeypatch):
-    fake_service = _FakeSheetsService(existing_tabs=["Dashboard", "Ledger"])
+def test_save_report_fails_gracefully_when_sheet_has_no_tabs(monkeypatch):
+    fake_service = _FakeSheetsService(existing_tabs=[])
     monkeypatch.setattr("tools.reporting_tools.get_service", lambda *a, **k: fake_service)
 
     result = save_report_to_sheet(_sample_report(), sheet_id="sheet-123")
 
-    assert result["status"] == "ok"
-    assert fake_service.spreadsheets().batch_update_calls == []
+    assert result["status"] == "failed"
+    assert "error" in result
 
 
 def test_save_report_clears_before_writing_not_appending(monkeypatch):
-    # This is a snapshot overwrite, not a growing ledger - clear() must be
-    # called before update() on every save, not just the first one.
-    fake_service = _FakeSheetsService(existing_tabs=["Dashboard"])
+    fake_service = _FakeSheetsService(existing_tabs=["Sheet1"])
     monkeypatch.setattr("tools.reporting_tools.get_service", lambda *a, **k: fake_service)
 
     save_report_to_sheet(_sample_report(), sheet_id="sheet-123")
@@ -98,14 +91,11 @@ def test_save_report_clears_before_writing_not_appending(monkeypatch):
     values = fake_service.spreadsheets().values()
     assert len(values.clear_calls) == 2
     assert len(values.update_calls) == 2
-    assert all(r == "Dashboard!A:Z" for _, r in values.clear_calls)
+    assert all(r == "'Sheet1'!A:Z" for _, r in values.clear_calls)
 
 
 def test_save_report_sanitizes_untrusted_vendor_category_text(monkeypatch):
-    # Vendor/category text ultimately traces back to untrusted email
-    # content - formula-injection characters must be neutralized the same
-    # way append_to_ledger already does, not written raw into the sheet.
-    fake_service = _FakeSheetsService(existing_tabs=["Dashboard"])
+    fake_service = _FakeSheetsService(existing_tabs=["Sheet1"])
     monkeypatch.setattr("tools.reporting_tools.get_service", lambda *a, **k: fake_service)
 
     data = {

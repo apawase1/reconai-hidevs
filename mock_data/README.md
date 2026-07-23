@@ -13,8 +13,9 @@ the real code would produce, not an approximation.
 - **reconciled_output_sample.json** — the same batch after
   `check_duplicates_and_budget`: adds `is_duplicate`/`duplicate_of`/`is_recurring`,
   plus `missing_invoices` (from a cross-checked bank CSV debit with no matching
-  invoice) and `budget_summary`. This exact dict is what `app.py`'s
-  `_MOCK_RECONCILED_DATA` and the "Load mock data" sidebar button use.
+  invoice) and `budget_summary`. `app.py`'s "Load mock data" sidebar button
+  reads this file directly at runtime (`_load_mock_reconciled_data()`) — it's
+  not duplicated as a Python literal anywhere in the app.
 - **report_sample.json** — the same data after `generate_monthly_report`: totals,
   category breakdown, subscriptions, recurring investments, payments pending,
   and the markdown summary.

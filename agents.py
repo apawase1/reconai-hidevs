@@ -1,34 +1,4 @@
-"""
-agents.py — ReconAI's 3-agent ADK SequentialAgent workflow.
-
-Discovery -> Reconciliation -> Reporting, per RECONAI_ARCHITECTURE_SKILL.md
-section 1. Data flows between agents via ADK session state: each agent
-writes its result through `output_key`, the next agent reads it via
-`{key}` templating in its own instruction (section 2 — session state,
-not ADK's MemoryService, which this project deliberately does not use).
-
-Google Sheets (ledger persistence + cross-run memory) is deliberately NOT
-wired into the pipeline right now — get_processed_ids/append_to_ledger/
-mark_processed/query_ledger still exist in tools/reconciliation_tools.py
-and tools/reporting_tools.py, but no agent calls them. This run is
-Gmail-in, report-out only: no Sheets API calls, no persisted ledger, no
-cross-run "already processed" memory. Sheets sync is parked as a future
-integration (re-enable by re-adding those four tools to the relevant
-agent's `tools=[...]` list and restoring the sheet_id plumbing this file
-used to have — see git history / RECONAI_ARCHITECTURE_ADDENDUM.md).
-
-Every agent carries the same guardrail stack from tools/security.py, per
-RECONAI_ARCHITECTURE_ADDENDUM.md section A. Both input_filter and
-rate_limiter need the LlmRequest (to inspect prompt text / gate the call),
-so both are wired as before_model_callback — ADK 2.4.0's before_agent_callback
-only receives the Context, not the request, so it can't do content-based
-filtering:
-  before_model_callback   -> [input_filter, rate_limiter] (run in order; either can short-circuit)
-  before_tool_callback    -> block_destructive_actions (tripwire)
-  after_model_callback    -> output_filter (secret redaction + destructive-phrase block)
-
-Run standalone: python agents.py
-"""
+"""agents.py — ReconAI's 3-agent ADK SequentialAgent workflow: Discovery -> Reconciliation -> Reporting."""
 
 import os
 
@@ -56,9 +26,7 @@ load_dotenv()
 
 MODEL = os.getenv("RECONAI_MODEL", "gemini-3.5-flash")
 
-# Shared guardrail stack — identical on all three agents (section 5.2 / A.4).
-# input_filter runs before rate_limiter: no point burning rate-limit budget
-# rejecting input that was going to be refused anyway.
+# Shared guardrail stack, identical across all three agents.
 GUARDRAILS = dict(
     before_model_callback=[input_filter, rate_limiter],
     before_tool_callback=block_destructive_actions,
@@ -246,6 +214,7 @@ root_agent = SequentialAgent(
 
 
 def run_once(prompt: str, budget: dict = None) -> None:
+    """Runs the full pipeline once against a fresh in-memory session and prints each agent's output."""
     if not os.getenv("GOOGLE_API_KEY"):
         raise SystemExit("GOOGLE_API_KEY not found. Check your .env file.")
 
